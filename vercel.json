@@ -11,7 +11,7 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|css/|js/|favicon.ico|manifest.json).*)",
       "destination": "/index.html"
     }
   ],
