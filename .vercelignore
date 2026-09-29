@@ -1,0 +1,55 @@
+# Vercel ignore file
+# Exclude development and sensitive files
+
+# PowerShell server
+server.ps1
+test_tcp.ps1
+
+# SSL certificates
+*.pfx
+*.pem
+*.crt
+*.key
+
+# Firebase config (use environment variables in production)
+.firebase/
+.firebaserc
+firebase.json
+firestore.rules
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local development
+*.local.*
+
+# Documentation (optional)
+*.md
+!README.md
+
+# Node modules (if any)
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Backup files
+*.bak
+*.backup

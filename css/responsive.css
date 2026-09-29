@@ -1,0 +1,241 @@
+/* ==========================================================================
+   VENDENDO SOLUÇÕES — RESPONSIVE & MOBILE-FIRST DESIGN
+   Seamless experience across phones, tablets, laptops, and 4K displays
+   ========================================================================== */
+
+/* Mobile Bottom Navigation Bar */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+  z-index: 1500;
+  padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom, 0px)) 0.5rem;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.65rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  position: relative;
+  min-width: 58px;
+}
+
+.mobile-nav-item svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2;
+}
+
+.mobile-nav-item.active {
+  color: var(--primary);
+}
+
+.mobile-nav-item .mobile-nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 14px;
+  background: var(--danger);
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+/* --------------------------------------------------------------------------
+   Breakpoints
+   -------------------------------------------------------------------------- */
+
+/* Tablets and below (< 992px) */
+@media (max-width: 992px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-sidebar {
+    display: flex;
+    overflow-x: auto;
+    padding: 0.85rem;
+  }
+
+  .dashboard-user-card {
+    display: none;
+  }
+
+  .dashboard-nav {
+    flex-direction: row;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .checkout-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-product-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .carousel-slide {
+    min-height: 380px;
+  }
+
+  .slide-content {
+    padding: 2.5rem 2rem;
+  }
+}
+
+/* Mobile Devices (< 768px) */
+@media (max-width: 768px) {
+  body {
+    padding-bottom: 70px; /* Space for mobile bottom bar */
+  }
+
+  .mobile-bottom-nav {
+    display: flex;
+  }
+
+  .top-notice-bar {
+    display: none;
+  }
+
+  .header-main {
+    padding: 0.65rem 0;
+    gap: 0.75rem;
+  }
+
+  .search-wrapper {
+    display: none; /* Accessible via mobile search button */
+  }
+
+  .search-wrapper.mobile-active {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-surface);
+    padding: 0.85rem 1rem;
+    z-index: 2100;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    max-width: 100%;
+  }
+
+  .header-actions .hide-on-mobile {
+    display: none;
+  }
+
+  .carousel-slide {
+    min-height: 340px;
+  }
+
+  .slide-content {
+    padding: 2rem 1.25rem;
+  }
+
+  .slide-title {
+    font-size: 1.8rem;
+  }
+
+  .slide-desc {
+    font-size: 0.95rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .grid-products {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.85rem;
+  }
+
+  .product-body {
+    padding: 0.85rem;
+  }
+
+  .product-title {
+    font-size: 0.875rem;
+    height: 2.6em;
+  }
+
+  .price-value {
+    font-size: 1.15rem;
+  }
+
+  .grid-stores, .grid-services {
+    grid-template-columns: 1fr;
+  }
+
+  .storefront-brand {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: -40px;
+  }
+
+  .storefront-actions {
+    width: 100%;
+    margin-top: 1rem;
+  }
+
+  .payment-method-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .cookie-banner {
+    flex-direction: column;
+    align-items: stretch;
+    bottom: 75px;
+    left: 1rem;
+    right: 1rem;
+    padding: 1rem;
+  }
+
+  .toast-container {
+    left: 1rem;
+    right: 1rem;
+    bottom: 80px;
+  }
+
+  .toast {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .modal-dialog {
+    max-height: 85vh;
+  }
+}
+
+/* Extra small mobile (< 480px) */
+@media (max-width: 480px) {
+  .grid-products {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-strip {
+    grid-template-columns: 1fr;
+  }
+}

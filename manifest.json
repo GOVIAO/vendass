@@ -1,0 +1,17 @@
+{
+  "name": "Vendendo Soluções - Plataforma Digital & Marketplace",
+  "short_name": "Vendendo Soluções",
+  "description": "A plataforma digital que conecta clientes, lojistas, prestadores de serviços e empresas de tecnologia em um ecossistema seguro e inovador.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0F1D",
+  "theme_color": "#4F46E5",
+  "icons": [
+    {
+      "src": "/assets/images/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>Vendendo Soluções — Plataforma Digital & Marketplace Inclusivo</title>
+  <meta name="description" content="O ecossistema digital que conecta clientes, lojistas, prestadores de serviços e empresas de tecnologia com segurança, diversidade e conformidade LGPD.">
+  <meta name="theme-color" content="#4F46E5">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/assets/images/icon.svg">
+
+  <!-- Environment Variables Injection (Vercel) -->
+  <script>
+    // Vercel injects environment variables at build time
+    // Fallback to defaults for local development
+    window.ENV = {
+      VITE_FIREBASE_API_KEY: "AIzaSyAOHlzuTQDKIqgo1FUgU7ARN6tBzEs52_4",
+      VITE_FIREBASE_AUTH_DOMAIN: "vendedor-de-solu.firebaseapp.com",
+      VITE_FIREBASE_PROJECT_ID: "vendedor-de-solu",
+      VITE_FIREBASE_STORAGE_BUCKET: "vendedor-de-solu.firebasestorage.app",
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "953875102535",
+      VITE_FIREBASE_APP_ID: "1:953875102535:web:6b5782e82c4dc207832a62",
+      VITE_FIREBASE_MEASUREMENT_ID: "G-XT74WR2V3C",
+      VITE_GA_MEASUREMENT_ID: "G-XXXXXXXXXX"
+    };
+  </script>
+
+  <!-- Google Analytics (GA4) -->
+  <script>
+    const GA_ID = window.ENV?.VITE_GA_MEASUREMENT_ID || "G-XXXXXXXXXX";
+    if (GA_ID !== "G-XXXXXXXXXX") {
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = "https://www.googletagmanager.com/gtag/js?id=" + GA_ID;
+      document.head.appendChild(script);
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', GA_ID);
+    }
+  </script>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/marketplace.css">
+  <link rel="stylesheet" href="/css/dashboards.css">
+  <link rel="stylesheet" href="/css/policies.css">
+  <link rel="stylesheet" href="/css/responsive.css">
+</head>
+<body>
+
+  <!-- Top Notice & Role Switcher Bar -->
+  <div class="top-notice-bar">
+    <div class="container" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+      <div>
+        <span>🇧🇷 <strong>Plataforma 100% Brasileira</strong> • Conforme LGPD & CDC</span>
+        <span id="firebase-cloud-status" class="badge badge-success" style="font-size:0.7rem; padding:2px 8px; margin-left:6px; cursor:pointer;" onclick="store.showToast('Conectado ao Firebase Cloud (Projeto: vendedor-de-solu)', 'success', 'Firebase Integrado')">⚡ Cloud: vendedor-de-solu</span>
+        <a href="javascript:void(0)" onclick="App.navigate('policy-diversity')">Política de Inclusão & Respeito</a>
+      </div>
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <div style="display:flex; align-items:center; gap:0.4rem;">
+          <span style="font-size:0.75rem; color:#A5B4FC;">Modo de Demonstração:</span>
+          <select id="quick-role-selector" onchange="App.handleRoleSwitch(this.value)" style="background:rgba(255,255,255,0.15); color:#FFFFFF; border:1px solid rgba(255,255,255,0.25); border-radius:4px; padding:2px 6px; font-size:0.75rem; cursor:pointer;">
+            <option value="client">👤 Visão: Cliente</option>
+            <option value="lojista">🏪 Visão: Lojista</option>
+            <option value="partner">🤝 Visão: Parceiro</option>
+            <option value="admin">🛡️ Visão: Administrador</option>
+          </select>
+        </div>
+        <div class="top-notice-links">
+          <a href="javascript:void(0)" onclick="App.navigate('my-orders')">Meus Pedidos</a>
+          <a href="javascript:void(0)" onclick="App.navigate('policy-lgpd')">Privacidade LGPD</a>
+          <a href="javascript:void(0)" onclick="App.openModal('modal-report')">Canal de Denúncias</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Site Header -->
+  <header class="site-header">
+    <div class="container">
+      <div class="header-main">
+        <!-- Brand Logo -->
+        <a class="brand-logo" onclick="App.navigate('home')">
+          <div class="brand-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div class="brand-title">
+            <span class="main-text">Vendendo <span class="text-gradient">Soluções</span></span>
+            <span class="sub-text">Ecossistema Digital</span>
+          </div>
+        </a>
+
+        <!-- Global Search Bar -->
+        <div class="search-wrapper">
+          <div class="search-bar-inner">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" style="margin-right:8px;">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input type="text" id="global-search-input" class="search-input" placeholder="Buscar produtos, serviços, lojas, softwares, frete...">
+            <select class="search-category-select" onchange="App.filterCategory(this.value)">
+              <option value="cat-todos">Todas as Áreas</option>
+              <option value="cat-tec">Tecnologia & SaaS</option>
+              <option value="cat-eletronicos">Eletrônicos</option>
+              <option value="cat-servicos">Serviços</option>
+              <option value="cat-logistica">Logística</option>
+              <option value="cat-moda">Moda Inclusiva</option>
+              <option value="cat-beleza">BioCosméticos</option>
+            </select>
+            <button class="search-btn" title="Buscar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
+          <!-- Predictive Results Dropdown -->
+          <div class="search-results-dropdown" id="search-predictive-dropdown"></div>
+        </div>
+
+        <!-- Header Actions -->
+        <div class="header-actions">
+          <!-- Theme Switcher -->
+          <button class="btn btn-ghost btn-icon" id="theme-toggle-btn" onclick="App.toggleTheme()" title="Alternar Modo Escuro / Claro">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+
+          <!-- User Profile / Auth Action -->
+          <div class="profile-avatar-pill" id="user-profile-menu">
+            <div id="nav-user-display" style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;" onclick="App.toggleUserMenu(event)">
+              <div class="avatar-circle">C</div>
+              <span style="font-size:0.85rem; font-weight:600;">Carlos</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:2px;">⌄</svg>
+            </div>
+            <div class="user-dropdown" id="user-dropdown-menu" style="display:none; position:absolute; top:100%; right:0; margin-top:8px; min-width:220px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); z-index:1000; overflow:hidden;">
+              <div style="padding:0.75rem 1rem; border-bottom:1px solid var(--border-color);">
+                <div style="font-weight:600; font-size:0.85rem;" id="dropdown-user-name">Carlos Eduardo Silva</div>
+                <div style="font-size:0.7rem; color:var(--secondary); text-transform:uppercase; font-weight:600;" id="dropdown-user-role">CLIENTE</div>
+              </div>
+              <a href="javascript:void(0)" onclick="App.navigate('my-orders')" class="dropdown-item" style="display:flex; align-items:center; gap:0.5rem; padding:0.6rem 1rem; color:var(--text-primary); text-decoration:none; font-size:0.85rem; transition:background 0.15s;">📦 Meus Pedidos</a>
+              <a href="javascript:void(0)" onclick="App.navigate('policy-lgpd')" class="dropdown-item" style="display:flex; align-items:center; gap:0.5rem; padding:0.6rem 1rem; color:var(--text-primary); text-decoration:none; font-size:0.85rem;">🔒 Privacidade LGPD</a>
+              <a href="javascript:void(0)" onclick="App.openModal('modal-report')" class="dropdown-item" style="display:flex; align-items:center; gap:0.5rem; padding:0.6rem 1rem; color:var(--text-primary); text-decoration:none; font-size:0.85rem;">⚠️ Canal de Denúncias</a>
+              <hr style="margin:0.5rem 0; border:none; border-top:1px solid var(--border-color);">
+              <button onclick="App.logout()" class="dropdown-item" style="display:flex; align-items:center; gap:0.5rem; padding:0.6rem 1rem; color:var(--danger); text-decoration:none; font-size:0.85rem; background:none; border:none; width:100%; text-align:left; cursor:pointer;">🚪 Sair da Conta</button>
+            </div>
+          </div>
+
+          <!-- Cart Drawer Button -->
+          <div class="action-item" onclick="App.openDrawer('cart-drawer')" title="Carrinho de Compras">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+            </svg>
+            <span class="action-badge" id="header-cart-count">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category Nav Strip -->
+    <div class="category-nav-strip">
+      <div class="container">
+        <div class="category-nav-inner" id="category-nav-pills">
+          <!-- Dynamic Category Pills Rendered by JS -->
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       VIEW: HOME (PÁGINA INICIAL)
+       ========================================================================= -->
+  <main id="view-home" class="view-container">
+    <div class="container">
+
+      <!-- Hero Banner Carousel -->
+      <section class="hero-section">
+        <div class="hero-carousel">
+          <div class="carousel-track" id="hero-carousel-track">
+            
+            <!-- Slide 1: Main Platform & Technology -->
+            <div class="carousel-slide">
+              <img src="/assets/images/hero-banner.jpg" alt="Vendendo Soluções Marketplace" class="slide-bg">
+              <div class="slide-overlay"></div>
+              <div class="slide-content">
+                <span class="slide-badge badge badge-primary">✨ Plataforma Digital Multilojas</span>
+                <h1 class="slide-title">Conectando Negócios, Soluções e Resultados</h1>
+                <p class="slide-desc">O marketplace moderno que reúne clientes, lojas virtuais, prestadores de serviços qualificados, empresas de tecnologia e logística em um só lugar.</p>
+                <div class="slide-actions">
+                  <button class="btn btn-primary btn-lg" onclick="document.getElementById('section-produtos').scrollIntoView({behavior:'smooth'})">
+                    Explorar Catálogo →
+                  </button>
+                  <button class="btn btn-outline btn-lg" onclick="App.openModal('modal-register-merchant')">
+                    🏪 Criar Minha Loja Grátis
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Slide 2: Diversity, Inclusion & Respect -->
+            <div class="carousel-slide">
+              <img src="/assets/images/diversity-banner.jpg" alt="Diversidade e Inclusão" class="slide-bg">
+              <div class="slide-overlay"></div>
+              <div class="slide-content">
+                <span class="slide-badge badge badge-cyan">🤝 Diversidade, Equidade & Respeito</span>
+                <h2 class="slide-title">Um Ecossistema Aberto, Inclusivo e Seguro</h2>
+                <p class="slide-desc">Respeito irrestrito a todas as pessoas, comunidade LGBTQIA+, empreendedores negros, indígenas, pessoas com deficiência e negócios de todos os portes.</p>
+                <div class="slide-actions">
+                  <button class="btn btn-secondary btn-lg" onclick="App.navigate('policy-diversity')">
+                    Conhecer Nossas Diretrizes
+                  </button>
+                  <button class="btn btn-outline btn-lg" onclick="App.openModal('modal-report')">
+                    Canal Ético & Denúncia
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Slide 3: Smart Logistics & Cloud -->
+            <div class="carousel-slide">
+              <img src="/assets/images/logistics-banner.jpg" alt="Logística Inteligente" class="slide-bg">
+              <div class="slide-overlay"></div>
+              <div class="slide-content">
+                <span class="slide-badge badge badge-warning">⚡ Logística Integrada & Rápida</span>
+                <h2 class="slide-title">Entregas Inteligentes e Tecnologia Conectada</h2>
+                <p class="slide-desc">Frota de transporte com rastreamento ao vivo, integração via API REST para transportadoras e envio simplificado para todos os lojistas.</p>
+                <div class="slide-actions">
+                  <button class="btn btn-primary btn-lg" onclick="document.getElementById('section-logistica').scrollIntoView({behavior:'smooth'})">
+                    Simular Frete & Rastreio
+                  </button>
+                  <button class="btn btn-outline btn-lg" onclick="App.openModal('modal-register-partner')">
+                    Seja um Parceiro Logístico
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Carousel Controls -->
+          <button class="carousel-nav-btn carousel-nav-prev" onclick="App.prevSlide()">❮</button>
+          <button class="carousel-nav-btn carousel-nav-next" onclick="App.nextSlide()">❯</button>
+          <div class="carousel-indicators">
+            <button class="carousel-dot active" onclick="App.setSlide(0)"></button>
+            <button class="carousel-dot" onclick="App.setSlide(1)"></button>
+            <button class="carousel-dot" onclick="App.setSlide(2)"></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Trust & Pillars Strip -->
+      <section class="trust-strip">
+        <div class="trust-card">
+          <div class="trust-icon-box">🛡️</div>
+          <div class="trust-card-info">
+            <h4>Conformidade LGPD & CDC</h4>
+            <p>Seus dados protegidos com auditoria e direito de arrependimento em 7 dias.</p>
+          </div>
+        </div>
+        <div class="trust-card">
+          <div class="trust-icon-box">⚡</div>
+          <div class="trust-card-info">
+            <h4>PIX Instantâneo & Cartão</h4>
+            <p>Pague com QR Code dinâmico ou em até 12x com proteção antifraude.</p>
+          </div>
+        </div>
+        <div class="trust-card">
+          <div class="trust-icon-box">🚚</div>
+          <div class="trust-card-info">
+            <h4>Logística com Rastreio</h4>
+            <p>Integração com Nexus Express, Correios SEDEX e entregas sustentáveis.</p>
+          </div>
+        </div>
+        <div class="trust-card">
+          <div class="trust-icon-box">🏪</div>
+          <div class="trust-card-info">
+            <h4>Lojas & Vendedores Verificados</h4>
+            <p>Validação criteriosa de CNPJ, alvará e termos de integridade comercial.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Flash Deals Section -->
+      <section class="glass-panel" style="padding:1.5rem 2rem; margin-bottom:2.5rem; background:linear-gradient(135deg, rgba(79,70,229,0.12) 0%, rgba(6,182,212,0.08) 100%);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+          <div style="display:flex; align-items:center; gap:1rem;">
+            <span style="font-size:2rem;">🔥</span>
+            <div>
+              <h3 style="font-size:1.3rem;">Ofertas Relâmpago do Dia</h3>
+              <p style="margin:0; font-size:0.85rem;">Descontos exclusivos por tempo limitado diretamente dos fabricantes e prestadores.</p>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span style="font-size:0.85rem; font-weight:600; color:var(--text-secondary);">Termina em:</span>
+            <div style="display:flex; gap:0.35rem; font-family:var(--font-heading); font-weight:800; font-size:1.1rem;">
+              <span id="flash-h" style="background:var(--bg-surface); padding:0.25rem 0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">08</span> :
+              <span id="flash-m" style="background:var(--bg-surface); padding:0.25rem 0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">42</span> :
+              <span id="flash-s" style="background:var(--bg-surface); padding:0.25rem 0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">15</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Featured Products Vitrine -->
+      <section id="section-produtos">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-tagline">Vitrine Selecionada</span>
+            <h2 class="section-title">Produtos e Soluções em Destaque</h2>
+          </div>
+          <div>
+            <button class="btn btn-outline btn-sm" onclick="App.filterCategory('cat-todos')">Ver Todo o Catálogo</button>
+          </div>
+        </div>
+        <div class="grid-products" id="vitrine-produtos-grid">
+          <!-- Dynamic Products Rendered by JS -->
+        </div>
+      </section>
+
+      <!-- Featured Stores Showcase -->
+      <section id="section-lojas" style="margin-top:2rem;">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-tagline">Espaço dos Lojistas</span>
+            <h2 class="section-title">Lojas e Empresas Parceiras</h2>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="App.openModal('modal-register-merchant')">
+            + Cadastrar Minha Loja
+          </button>
+        </div>
+        <div class="grid-stores" id="vitrine-lojas-grid">
+          <!-- Dynamic Stores Rendered by JS -->
+        </div>
+      </section>
+
+      <!-- Services & Professionals Showcase -->
+      <section id="section-servicos" style="margin-top:2rem;">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-tagline">Serviços Especializados</span>
+            <h2 class="section-title">Tecnologia, Consultoria e Suporte</h2>
+          </div>
+          <span class="badge badge-cyan">Contratação Segura com Garantia</span>
+        </div>
+        <div class="grid-services" id="vitrine-servicos-grid">
+          <!-- Dynamic Services Rendered by JS -->
+        </div>
+      </section>
+
+      <!-- Integrated Logistics Quick Simulator -->
+      <section id="section-logistica" class="glass-panel" style="padding:2.5rem; margin:3rem 0;">
+        <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:2.5rem; align-items:center;">
+          <div>
+            <span class="badge badge-warning" style="margin-bottom:0.75rem;">🚚 HUB LOGÍSTICO VENDENDO SOLUÇÕES</span>
+            <h2 style="margin-bottom:0.75rem;">Simulador Rápido de Frete e Rastreio</h2>
+            <p style="font-size:0.95rem; margin-bottom:1.5rem;">
+              Consulte prazos e valores de frete para todo o território nacional através de nossa malha de transportadoras integradas ou acompanhe sua encomenda com código de rastreamento oficial.
+            </p>
+            <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+              <input type="text" id="quick-track-input" class="form-control" style="max-width:280px;" placeholder="Ex: VS948123789BR">
+              <button class="btn btn-primary" onclick="App.openTrackingModal(document.getElementById('quick-track-input').value.trim() || 'VS948123789BR')">
+                🔍 Rastrear Objeto
+              </button>
+            </div>
+          </div>
+          <div style="background:var(--bg-surface); padding:1.5rem; border-radius:var(--radius-lg); border:1px solid var(--border-color);">
+            <h4 style="margin-bottom:1rem;">Parceiros de Transporte Integrados</h4>
+            <div style="display:flex; flex-direction:column; gap:0.75rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem;">
+                <span>⚡ Nexus Express Logística</span>
+                <span class="badge badge-success">Conectado via API</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem;">
+                <span>📦 Correios Brasil (SEDEX / PAC)</span>
+                <span class="badge badge-success">Conectado via API</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem;">
+                <span>🚚 Loggi Transportes Rápidos</span>
+                <span class="badge badge-success">Conectado via API</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Customer Testimonials -->
+      <section style="margin:3rem 0;">
+        <div class="section-header" style="justify-content:center; text-align:center;">
+          <div class="section-title-wrap" style="align-items:center;">
+            <span class="section-tagline">Depoimentos Verificados</span>
+            <h2 class="section-title">O que Dizem Clientes e Vendedores</h2>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.5rem;">
+          <div class="value-box">
+            <div class="rating-stars" style="margin-bottom:0.5rem;">★★★★★</div>
+            <p style="font-style:italic; font-size:0.9rem;">"A integração entre as lojas e o painel de compras foi perfeita. Comprei itens de dois lojistas diferentes e recebi cada rastreio no meu WhatsApp!"</p>
+            <strong style="font-size:0.85rem;">— Mariana Costa (Cliente Verificada, SP)</strong>
+          </div>
+          <div class="value-box">
+            <div class="rating-stars" style="margin-bottom:0.5rem;">★★★★★</div>
+            <p style="font-style:italic; font-size:0.9rem;">"Como lojista de moda inclusiva, achei maravilhoso o compromisso da plataforma com a diversidade e o repasse pontual das vendas via PIX."</p>
+            <strong style="font-size:0.85rem;">— Joana D'Arc (Lojista Raízes & Tradição, BA)</strong>
+          </div>
+          <div class="value-box">
+            <div class="rating-stars" style="margin-bottom:0.5rem;">★★★★★</div>
+            <p style="font-style:italic; font-size:0.9rem;">"As APIs para parceiros de tecnologia e o simulador de webhooks facilitaram a conexão do nosso ERP em menos de 2 horas."</p>
+            <strong style="font-size:0.85rem;">— Rodrigo Mendes (CTO TechNova, SP)</strong>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       VIEW: STOREFRONT (PÁGINA INDIVIDUAL DA LOJA)
+       ========================================================================= -->
+  <section id="view-storefront" class="view-container" style="display:none;">
+    <div class="container">
+      <button class="btn btn-ghost btn-sm" onclick="App.navigate('home')" style="margin-bottom:1rem;">
+        ← Voltar à Página Inicial
+      </button>
+
+      <div class="storefront-header">
+        <div class="storefront-banner">
+          <img id="sf-banner" src="" class="storefront-banner-img">
+        </div>
+        <div class="storefront-profile">
+          <div class="storefront-brand">
+            <img id="sf-avatar" src="" class="storefront-avatar">
+            <div class="storefront-meta">
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <h2 id="sf-name">Nome da Loja</h2>
+                <span class="badge badge-success">✓ Loja Verificada</span>
+              </div>
+              <div id="sf-legal-cnpj" style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">
+                Razão Social • CNPJ
+              </div>
+              <p id="sf-desc" style="margin:0.5rem 0 0 0; max-width:650px; font-size:0.875rem;">Descrição da loja...</p>
+            </div>
+          </div>
+          <div class="storefront-actions">
+            <button class="btn btn-outline btn-sm" id="sf-btn-fav">☆ Favoritar Loja</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="App.openModal('modal-report')">
+              ⚠️ Denunciar Loja
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Store Products Showcase -->
+      <div class="section-header">
+        <h3>Catálogo Exclusivo desta Loja</h3>
+      </div>
+      <div class="grid-products" id="sf-products-grid">
+        <!-- Products for this store -->
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       VIEW: CHECKOUT MULTI-LOJISTA
+       ========================================================================= -->
+  <section id="view-checkout" class="view-container" style="display:none;">
+    <div class="container" style="max-width:1050px; margin:2rem auto;">
+      
+      <!-- Checkout Steps Bar -->
+      <div class="checkout-steps-bar">
+        <div class="checkout-step-node active" id="step-node-1">
+          <div class="step-circle">1</div>
+          <span class="step-label">Identificação & Entrega</span>
+        </div>
+        <div class="checkout-step-node" id="step-node-2">
+          <div class="step-circle">2</div>
+          <span class="step-label">Opções de Frete</span>
+        </div>
+        <div class="checkout-step-node" id="step-node-3">
+          <div class="step-circle">3</div>
+          <span class="step-label">Pagamento & Conclusão</span>
+        </div>
+      </div>
+
+      <div class="checkout-grid">
+        <!-- Main Form Column -->
+        <div class="glass-panel" style="padding:2rem;">
+          
+          <!-- Step 1: Address & Identification -->
+          <div id="checkout-step-1">
+            <h3 style="margin-bottom:1.25rem;">📍 Dados de Entrega e Destinatário</h3>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+              <div class="form-group">
+                <label class="form-label">Nome Completo <span class="required">*</span></label>
+                <input type="text" class="form-control" value="Carlos Eduardo Silva">
+              </div>
+              <div class="form-group">
+                <label class="form-label">E-mail <span class="required">*</span></label>
+                <input type="email" class="form-control" value="carlos.silva@exemplo.com.br">
+              </div>
+            </div>
+            <div style="display:grid; grid-template-columns:160px 1fr; gap:1rem;">
+              <div class="form-group">
+                <label class="form-label">CEP <span class="required">*</span></label>
+                <input type="text" class="form-control" value="01310-200">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Logradouro / Avenida <span class="required">*</span></label>
+                <input type="text" class="form-control" value="Av. Paulista">
+              </div>
+            </div>
+            <div style="display:grid; grid-template-columns:100px 1fr 120px; gap:1rem;">
+              <div class="form-group">
+                <label class="form-label">Número</label>
+                <input type="text" class="form-control" value="1578">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Complemento</label>
+                <input type="text" class="form-control" value="Apto 82">
+              </div>
+              <div class="form-group">
+                <label class="form-label">UF</label>
+                <input type="text" class="form-control" value="SP">
+              </div>
+            </div>
+            <button class="btn btn-primary" style="width:100%; margin-top:1rem;" onclick="CartCheckout.setStep(2)">
+              Continuar para Opções de Envio →
+            </button>
+          </div>
+
+          <!-- Step 2: Shipping Method Selection -->
+          <div id="checkout-step-2" style="display:none;">
+            <h3 style="margin-bottom:1.25rem;">🚚 Escolha as Formas de Envio por Lojista</h3>
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.25rem;">
+              Como seu carrinho contém produtos de lojas parceiras independentes, cada lojista fará o envio diretamente com rastreamento individual.
+            </p>
+            <div style="background:var(--bg-surface-elevated); padding:1.25rem; border-radius:var(--radius-md); border:1px solid var(--border-color); margin-bottom:1.25rem;">
+              <div style="font-weight:700; margin-bottom:0.5rem;">🏪 Envio da TechNova Soluções Digitais</div>
+              <label style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; cursor:pointer;">
+                <span><input type="radio" name="shipping-1" checked> ⚡ Nexus Express (1 a 2 dias úteis)</span>
+                <strong>R$ 18,90</strong>
+              </label>
+              <label style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; cursor:pointer;">
+                <span><input type="radio" name="shipping-1"> 📦 SEDEX Correios (2 a 3 dias úteis)</span>
+                <strong>R$ 24,50</strong>
+              </label>
+            </div>
+            <div style="display:flex; gap:1rem;">
+              <button class="btn btn-outline" onclick="CartCheckout.setStep(1)">← Voltar</button>
+              <button class="btn btn-primary" style="flex:1;" onclick="CartCheckout.setStep(3)">
+                Ir para o Pagamento Seguro →
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 3: Payment Method Selection -->
+          <div id="checkout-step-3" style="display:none;">
+            <h3 style="margin-bottom:1.25rem;">💳 Forma de Pagamento</h3>
+            
+            <div class="payment-method-selector">
+              <div class="payment-method-card selected" id="pay-card-pix" onclick="CartCheckout.selectPaymentMethod('pix')">
+                <div style="font-size:1.5rem; margin-bottom:0.25rem;">⚡</div>
+                <strong>PIX</strong>
+                <div style="font-size:0.75rem; color:var(--success); font-weight:700;">Aprovação Instantânea</div>
+              </div>
+              <div class="payment-method-card" id="pay-card-credit" onclick="CartCheckout.selectPaymentMethod('credit')">
+                <div style="font-size:1.5rem; margin-bottom:0.25rem;">💳</div>
+                <strong>Cartão de Crédito</strong>
+                <div style="font-size:0.75rem; color:var(--text-muted);">Até 12x sem juros</div>
+              </div>
+              <div class="payment-method-card" id="pay-card-boleto" onclick="CartCheckout.selectPaymentMethod('boleto')">
+                <div style="font-size:1.5rem; margin-bottom:0.25rem;">📄</div>
+                <strong>Boleto Bancário</strong>
+                <div style="font-size:0.75rem; color:var(--text-muted);">1 a 2 dias úteis</div>
+              </div>
+            </div>
+
+            <!-- PIX Box -->
+            <div id="payment-pix-box">
+              <div class="pix-qr-container">
+                <div style="font-weight:700; margin-bottom:0.5rem;">Pague via PIX com QR Code Dinâmico</div>
+                <!-- Dynamic SVG QR Code Representation -->
+                <svg class="pix-qr-img" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="200" height="200" fill="white"/>
+                  <rect x="20" y="20" width="50" height="50" fill="black"/>
+                  <rect x="30" y="30" width="30" height="30" fill="white"/>
+                  <rect x="37" y="37" width="16" height="16" fill="black"/>
+                  <rect x="130" y="20" width="50" height="50" fill="black"/>
+                  <rect x="140" y="30" width="30" height="30" fill="white"/>
+                  <rect x="147" y="37" width="16" height="16" fill="black"/>
+                  <rect x="20" y="130" width="50" height="50" fill="black"/>
+                  <rect x="30" y="140" width="30" height="30" fill="white"/>
+                  <rect x="37" y="147" width="16" height="16" fill="black"/>
+                  <!-- Pattern bits -->
+                  <rect x="85" y="20" width="15" height="15" fill="black"/>
+                  <rect x="85" y="45" width="25" height="15" fill="black"/>
+                  <rect x="105" y="20" width="15" height="15" fill="black"/>
+                  <rect x="85" y="85" width="30" height="30" fill="#4F46E5"/>
+                  <rect x="20" y="85" width="20" height="20" fill="black"/>
+                  <rect x="50" y="85" width="20" height="20" fill="black"/>
+                  <rect x="130" y="85" width="20" height="40" fill="black"/>
+                  <rect x="160" y="85" width="20" height="20" fill="black"/>
+                  <rect x="85" y="130" width="20" height="50" fill="black"/>
+                  <rect x="120" y="145" width="60" height="35" fill="black"/>
+                </svg>
+                <div style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.75rem;">
+                  QR Code válido por <strong id="pix-countdown" style="color:var(--secondary);">14:59</strong>
+                </div>
+                <div class="form-group" style="width:100%; max-width:400px; margin-bottom:0.75rem;">
+                  <input type="text" id="pix-copy-paste-code" class="form-control" readonly value="00020126580014br.gov.bcb.pix0136vendendosolucoes-bcb-uuid-849182375204000053039865802BR5925VENDENDO SOLUCOES MARKET6009SAO PAULO62070503***6304E8A1" style="font-family:monospace; font-size:0.75rem;">
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="CartCheckout.copyPixCode()">
+                  📋 Copiar Código PIX
+                </button>
+              </div>
+            </div>
+
+            <!-- Credit Card Box -->
+            <div id="payment-credit-box" style="display:none;">
+              <div class="form-group">
+                <label class="form-label">Número do Cartão</label>
+                <input type="text" class="form-control" placeholder="0000 0000 0000 0000" maxlength="19">
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 100px; gap:1rem;">
+                <div class="form-group">
+                  <label class="form-label">Validade</label>
+                  <input type="text" class="form-control" placeholder="MM/AA" maxlength="5">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">CVV</label>
+                  <input type="text" class="form-control" placeholder="123" maxlength="4">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Parcelamento</label>
+                <select class="form-control form-select">
+                  <option>1x à vista sem juros</option>
+                  <option>2x sem juros</option>
+                  <option>3x sem juros</option>
+                  <option>6x sem juros</option>
+                  <option>12x sem juros</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Boleto Box -->
+            <div id="payment-boleto-box" style="display:none;">
+              <div style="padding:1.5rem; background:var(--bg-surface-elevated); border-radius:var(--radius-md); text-align:center;">
+                <div style="font-size:2rem; margin-bottom:0.5rem;">📄</div>
+                <h4>Boleto Bancário Registrado</h4>
+                <p style="font-size:0.85rem;">Após a finalização, você poderá imprimir ou copiar o código de barras para pagamento em qualquer banco ou lotérica.</p>
+              </div>
+            </div>
+
+            <!-- Final Action Buttons -->
+            <div style="display:flex; gap:1rem; margin-top:2rem;">
+              <button class="btn btn-outline" onclick="CartCheckout.setStep(2)">← Voltar</button>
+              <button class="btn btn-success btn-lg" style="flex:1;" onclick="CartCheckout.processPayment()">
+                🔒 Confirmar Pedido e Concluir Compra
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- Order Summary Column -->
+        <div>
+          <div class="glass-panel" style="padding:1.75rem; position:sticky; top:90px;">
+            <h4 style="margin-bottom:1rem;">Resumo da Compra</h4>
+            <div id="checkout-summary-items" style="max-height:250px; overflow-y:auto; border-bottom:1px solid var(--border-color); padding-bottom:1rem; margin-bottom:1rem;">
+              <!-- Summary items rendered by JS -->
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:0.5rem;">
+              <span>Frete Total:</span>
+              <strong id="checkout-shipping-price">R$ 25,00</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:1.25rem; font-weight:800; border-top:1px solid var(--border-color); padding-top:0.75rem; color:var(--text-primary);">
+              <span>Total:</span>
+              <span id="checkout-total-price" style="color:var(--primary);">R$ 0,00</span>
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:1rem; text-align:center;">
+              🛡️ Compra 100% protegida pelo Código de Defesa do Consumidor e certificado SSL 256-bit.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       VIEW: DASHBOARD DO LOJISTA (PAINEL DO VENDEDOR)
+       ========================================================================= -->
+  <section id="view-dashboard-seller" class="view-container" style="display:none;">
+    <div class="container">
+      <div class="dashboard-layout">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="dashboard-sidebar">
+          <div class="dashboard-user-card">
+            <div class="avatar-circle" style="width:42px; height:42px; font-size:1.1rem;">🏪</div>
+            <div>
+              <h3 id="seller-store-name">TechNova Soluções</h3>
+              <small id="seller-store-cnpj" style="color:var(--text-muted);">CNPJ: 34.892.110/0001-45</small>
+            </div>
+          </div>
+          <nav class="dashboard-nav">
+            <a class="dashboard-nav-item active" onclick="App.navigate('dashboard-seller')">📦 Catálogo & Produtos</a>
+            <a class="dashboard-nav-item" onclick="App.navigate('dashboard-seller')">📑 Pedidos Recebidos</a>
+            <a class="dashboard-nav-item" onclick="App.navigate('dashboard-seller')">💰 Repasses & Financeiro</a>
+            <a class="dashboard-nav-item" onclick="App.navigate('storefront', { storeId: 'store-technova' })">👁️ Ver Minha Loja Pública</a>
+          </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="dashboard-content">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem;">
+            <div>
+              <h2>Painel de Gestão da Loja</h2>
+              <p style="margin:0;">Gerencie produtos, estoque, pedidos recebidos e dados de faturamento.</p>
+            </div>
+            <button class="btn btn-primary" onclick="Dashboards.openAddProductModal()">
+              + Cadastrar Produto / Serviço
+            </button>
+          </div>
+
+          <!-- KPI Cards -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <span class="stat-label">Faturamento Mensal</span>
+              <span class="stat-val" id="seller-kpi-revenue">R$ 18.450,00</span>
+              <span class="stat-trend positive">↑ +14.2% vs mês anterior</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Total de Pedidos</span>
+              <span class="stat-val" id="seller-kpi-orders">12</span>
+              <span class="stat-trend positive">↑ 3 novos hoje</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Itens no Catálogo</span>
+              <span class="stat-val" id="seller-kpi-products">2</span>
+              <span class="stat-trend">Ativos para venda</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Reputação da Loja</span>
+              <span class="stat-val" id="seller-kpi-rating" style="color:#FBBF24;">4.9 ★</span>
+              <span class="stat-trend positive">Vendedor Excelente</span>
+            </div>
+          </div>
+
+          <!-- Products Table -->
+          <div style="margin-top:2.5rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3>Meus Produtos e Serviços Cadastrados</h3>
+            </div>
+            <div class="data-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Item / Nome</th>
+                    <th>Preço de Venda</th>
+                    <th>Estoque</th>
+                    <th>Avaliação</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="seller-products-table-body">
+                  <!-- Rendered by Dashboards.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Orders Received Table -->
+          <div style="margin-top:3rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3>Pedidos Recebidos para Despacho</h3>
+            </div>
+            <div class="data-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Pedido</th>
+                    <th>Data</th>
+                    <th>Cliente</th>
+                    <th>Status</th>
+                    <th>Rastreio</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="seller-orders-table-body">
+                  <!-- Rendered by Dashboards.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       VIEW: DASHBOARD DO PARCEIRO (LOGÍSTICA & TECNOLOGIA)
+       ========================================================================= -->
+  <section id="view-dashboard-partner" class="view-container" style="display:none;">
+    <div class="container">
+      <div class="dashboard-layout">
+        <aside class="dashboard-sidebar">
+          <div class="dashboard-user-card">
+            <div class="avatar-circle" style="width:42px; height:42px; font-size:1.1rem; background:linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%);">🤝</div>
+            <div>
+              <h3 id="partner-company-name">Nexus Logística & Cloud</h3>
+              <small style="color:var(--text-muted);">Parceiro Oficial</small>
+            </div>
+          </div>
+          <nav class="dashboard-nav">
+            <a class="dashboard-nav-item active">🚚 Frota & Transportes</a>
+            <a class="dashboard-nav-item">🔌 Credenciais de API</a>
+            <a class="dashboard-nav-item">📡 Webhooks & Eventos</a>
+          </nav>
+        </aside>
+
+        <main class="dashboard-content">
+          <h2>Portal de Parceiros & Integração Tecnológica</h2>
+          <p>Gerencie integrações de transporte, chaves de API REST e webhooks com a plataforma Vendendo Soluções.</p>
+
+          <!-- API Key Section -->
+          <div class="policy-card" style="margin-top:1.5rem;">
+            <h3>Chaves de API para Integração REST</h3>
+            <p style="font-size:0.85rem;">Utilize este token em requisições para <code>https://api.vendendosolucoes.com.br/v1</code></p>
+            <div style="display:flex; gap:0.75rem; margin:1rem 0;">
+              <input type="text" id="partner-api-key" class="form-control" readonly style="font-family:monospace;">
+              <button class="btn btn-outline" onclick="Dashboards.regenerateApiKey()">↻ Gerar Nova</button>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="Dashboards.simulateWebhook()">
+              🚀 Disparar Webhook Simulado de Teste
+            </button>
+          </div>
+
+          <!-- Carrier Fleet Table -->
+          <div style="margin-top:2rem;">
+            <h3>Transportadoras Conectadas ao Marketplace</h3>
+            <div id="partner-fleet-list" style="margin-top:1rem;">
+              <!-- Rendered by Dashboards.js -->
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       VIEW: DASHBOARD DO ADMINISTRADOR (MODERAÇÃO & GOVERNANÇA)
+       ========================================================================= -->
+  <section id="view-dashboard-admin" class="view-container" style="display:none;">
+    <div class="container">
+      <div class="dashboard-layout">
+        <aside class="dashboard-sidebar">
+          <div class="dashboard-user-card">
+            <div class="avatar-circle" style="width:42px; height:42px; font-size:1.1rem; background:linear-gradient(135deg, #EF4444 0%, #F59E0B 100%);">🛡️</div>
+            <div>
+              <h3>Admin Master</h3>
+              <small style="color:var(--text-muted);">Governança Geral</small>
+            </div>
+          </div>
+          <nav class="dashboard-nav">
+            <a class="dashboard-nav-item active">🏪 Moderação de Lojas</a>
+            <a class="dashboard-nav-item">⚠️ Central de Denúncias</a>
+            <a class="dashboard-nav-item">🔒 Logs de Auditoria</a>
+          </nav>
+        </aside>
+
+        <main class="dashboard-content">
+          <h2>Painel de Moderação & Governança da Plataforma</h2>
+          <p>Aprovação de lojistas, análise de denúncias e logs de auditoria de segurança da informação.</p>
+
+          <!-- Stores Moderation -->
+          <div style="margin-top:2rem;">
+            <h3>Lojas Cadastradas & Verificação de CNPJ</h3>
+            <div class="data-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Loja</th>
+                    <th>CNPJ</th>
+                    <th>Categoria</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-stores-table-body">
+                  <!-- Rendered by Dashboards.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Reports / Complaints Moderation -->
+          <div style="margin-top:3rem;">
+            <h3>Denúncias da Comunidade (Canal Ético)</h3>
+            <div class="data-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Protocolo</th>
+                    <th>Data</th>
+                    <th>Alvo Denunciado</th>
+                    <th>Motivo</th>
+                    <th>Status</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-reports-table-body">
+                  <!-- Rendered by Dashboards.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Security Audit Logs -->
+          <div style="margin-top:3rem;">
+            <h3>Logs de Auditoria & Segurança em Tempo Real</h3>
+            <div class="data-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Data/Hora</th>
+                    <th>Evento</th>
+                    <th>Usuário / Origem</th>
+                    <th>IP</th>
+                    <th>Detalhes do Evento</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-logs-table-body">
+                  <!-- Rendered by Dashboards.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       VIEW: DIVERSIDADE, INCLUSÃO E RESPEITO
+       ========================================================================= -->
+  <section id="view-policy-diversity" class="view-container" style="display:none;">
+    <div class="container" style="max-width:980px; margin:2rem auto;">
+      
+      <div class="diversity-hero">
+        <img src="/assets/images/diversity-banner.jpg" class="diversity-hero-bg">
+        <div class="diversity-hero-overlay"></div>
+        <div class="diversity-hero-content">
+          <span class="badge badge-cyan" style="margin-bottom:0.75rem;">MANIFESTO INSTITUCIONAL</span>
+          <h1 style="color:white; margin-bottom:1rem;">Diversidade, Equidade, Inclusão e Respeito</h1>
+          <p style="color:#CBD5E1; font-size:1.05rem;">
+            A plataforma Vendendo Soluções foi concebida sob o compromisso inegociável de promover um ambiente digital seguro, acolhedor e igualitário para todas as pessoas.
+          </p>
+        </div>
+      </div>
+
+      <div class="policy-card">
+        <h2>Nossos Pilares Fundamentais de Convivência</h2>
+        <p>No Vendendo Soluções, acreditamos que o comércio eletrônico e a tecnologia devem impulsionar a inclusão socioeconômica, sem qualquer espaço para discriminação.</p>
+
+        <div class="values-grid">
+          <div class="value-box">
+            <div class="value-icon">🌈</div>
+            <h4>Proteção à Comunidade LGBTQIA+</h4>
+            <p>Garantia de igualdade absoluta e respeito irrestrito a todas as identidades de gênero e orientações sexuais. Proibição categórica de qualquer discurso discriminatório ou preconceituoso.</p>
+          </div>
+          <div class="value-box">
+            <div class="value-icon">✊🏿</div>
+            <h4>Igualdade Racial e Étnica</h4>
+            <p>Estímulo ativo ao empreendedorismo negro e indígena, valorizando a produção autoral e a representatividade em todos os nichos de mercado.</p>
+          </div>
+          <div class="value-box">
+            <div class="value-icon">♿</div>
+            <h4>Acessibilidade e Inclusão PcD</h4>
+            <p>Design universal, produtos adaptados e interfaces acessíveis para pessoas com deficiência, garantindo autonomia plena em compras e vendas.</p>
+          </div>
+          <div class="value-box">
+            <div class="value-icon">⚖️</div>
+            <h4>Tolerância Zero contra Assédio</h4>
+            <p>Repúdio a qualquer manifestação de assédio moral ou sexual, discurso de ódio, violência verbal, perseguição ou comercialização de itens ilícitos.</p>
+          </div>
+        </div>
+
+        <div style="background:var(--bg-surface-elevated); padding:1.5rem; border-radius:var(--radius-lg); border-left:4px solid var(--secondary); margin-top:2rem;">
+          <h4 style="margin-bottom:0.5rem;">Canal Ético & Ouvidoria Independente</h4>
+          <p style="font-size:0.9rem; margin-bottom:1rem;">
+            Presenciou conduta inadequada, anúncio ofensivo ou discriminação por parte de qualquer lojista, comprador ou prestador de serviço? Registre uma denúncia imediata com garantia de sigilo.
+          </p>
+          <button class="btn btn-secondary" onclick="App.openModal('modal-report')">
+            Fazer Denúncia no Canal de Ética
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       VIEW: CENTRAL DE PRIVACIDADE & LGPD
+       ========================================================================= -->
+  <section id="view-policy-lgpd" class="view-container" style="display:none;">
+    <div class="container" style="max-width:980px; margin:2rem auto;">
+      <div class="policy-card">
+        <span class="badge badge-success" style="margin-bottom:0.75rem;">LEI Nº 13.709/2018</span>
+        <h2>Central de Privacidade e Direitos do Titular (LGPD)</h2>
+        <p>
+          No <strong>Vendendo Soluções</strong>, respeitamos integralmente a sua privacidade e tratamos seus dados pessoais com transparência, segurança criptográfica e estrita observância à Lei Geral de Proteção de Dados (LGPD).
+        </p>
+
+        <div class="lgpd-badge-bar">
+          <span style="font-size:1.8rem;">🔒</span>
+          <div>
+            <strong>Encarregado de Proteção de Dados (DPO):</strong>
+            <div style="font-size:0.85rem; color:var(--text-secondary);">dpo@vendendosolucoes.com.br • Canal oficial de contato com os titulares e ANPD</div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:2rem;">Seus Direitos como Titular de Dados (Art. 18 LGPD)</h3>
+        
+        <div class="privacy-options-list">
+          <!-- Portability / Export -->
+          <div class="privacy-toggle-item">
+            <div>
+              <strong>Portabilidade e Acesso aos Dados (Art. 18, V)</strong>
+              <p style="font-size:0.85rem; margin-bottom:0;">Faça o download de todos os seus dados cadastrais, pedidos e histórico em formato aberto legível (JSON).</p>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="PoliciesLGPD.exportUserData()">
+              📥 Baixar Meus Dados (JSON)
+            </button>
+          </div>
+
+          <!-- Elimination -->
+          <div class="privacy-toggle-item">
+            <div>
+              <strong>Eliminação e Anonimização dos Dados (Art. 18, VI)</strong>
+              <p style="font-size:0.85rem; margin-bottom:0;">Solicite o encerramento da conta e remoção dos dados desnecessários aos termos da lei.</p>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="PoliciesLGPD.requestDataDeletion()">
+              Solicitar Exclusão
+            </button>
+          </div>
+
+          <!-- Cookies Management -->
+          <div class="privacy-toggle-item">
+            <div>
+              <strong>Cookies Analíticos e de Performance</strong>
+              <p style="font-size:0.85rem; margin-bottom:0;">Permitem medir e aprimorar a experiência de navegação e busca na plataforma.</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" checked id="toggle-cookie-analytics">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <!-- Marketing Cookies -->
+          <div class="privacy-toggle-item">
+            <div>
+              <strong>Cookies de Personalização e Ofertas</strong>
+              <p style="font-size:0.85rem; margin-bottom:0;">Exibem ofertas e produtos de lojistas relevantes de acordo com seus interesses.</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" checked id="toggle-cookie-marketing">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div style="margin-top:2rem; padding-top:1.5rem; border-top:1px solid var(--border-color); font-size:0.85rem; color:var(--text-muted);">
+          * Os dados relativos a transações financeiras, notas fiscais eletrônicas e obrigações tributárias serão armazenados pelos prazos previstos pelo Código Tributário Nacional e Código Civil Brasileiro.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       VIEW: TERMOS DE USO & CONFORMIDADE COM A LEGISLAÇÃO
+       ========================================================================= -->
+  <section id="view-policy-terms" class="view-container" style="display:none;">
+    <div class="container" style="max-width:980px; margin:2rem auto;">
+      <div class="policy-card">
+        <span class="badge badge-primary" style="margin-bottom:0.75rem;">CONFORMIDADE JURÍDICA E REGULATÓRIA</span>
+        <h2>Termos de Uso, Legislação Aplicável e Governança Comercial</h2>
+        <p>
+          A plataforma digital <strong>Vendendo Soluções</strong> atua como ecossistema tecnológico e de intermediação comercial entre lojistas, prestadores de serviços, empresas de tecnologia e consumidores em todo o território nacional.
+        </p>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.25rem; margin:1.75rem 0;">
+          <div class="value-box">
+            <h4>1. Código de Defesa do Consumidor (CDC)</h4>
+            <p style="font-size:0.85rem;">
+              Observância estrita à Lei 8.078/1990. Todos os consumidores têm direito incondicional de arrependimento em compras não presenciais no prazo de 7 (sete) dias corridos após o recebimento (Art. 49 CDC), com ressarcimento integral e código de postagem reversa sem custos adicionais.
+            </p>
+          </div>
+          <div class="value-box">
+            <h4>2. Decreto do E-commerce (Decreto 7.962/2013)</h4>
+            <p style="font-size:0.85rem;">
+              Identificação clara de todos os lojistas: Razão Social, CNPJ ativo, endereço físico e eletrônico, informações detalhadas sobre custos de frete, prazos de envio, suporte ao cliente (SAC) e confirmação imediata da compra.
+            </p>
+          </div>
+          <div class="value-box">
+            <h4>3. Marco Civil da Internet (Lei 12.965/2014)</h4>
+            <p style="font-size:0.85rem;">
+              Manutenção de registros de conexão e de acesso a aplicações de internet sob absoluto sigilo e segurança pelo prazo de 6 meses a 1 ano, disponíveis exclusivamente mediante ordem judicial fundamentada.
+            </p>
+          </div>
+          <div class="value-box">
+            <h4>4. Regras Fiscais e Tributárias</h4>
+            <p style="font-size:0.85rem;">
+              Obrigação legal de todos os lojistas e prestadores emitirem Nota Fiscal Eletrônica (NF-e, NFS-e ou NFC-e) correspondente a cada venda ou serviço contratado, em conformidade com o Fisco Federal, Estadual e Municipal.
+            </p>
+          </div>
+          <div class="value-box">
+            <h4>5. Propriedade Intelectual e Marcas</h4>
+            <p style="font-size:0.85rem;">
+              Proibição expressa de venda de produtos falsificados, réplicas não autorizadas ou que violem patentes, direitos autorais (Lei 9.610/98) ou propriedade industrial (Lei 9.279/96). Lojas reincidentes são banidas sumariamente.
+            </p>
+          </div>
+          <div class="value-box">
+            <h4>6. Arranjos de Pagamento & Banco Central</h4>
+            <p style="font-size:0.85rem;">
+              Processamento seguro de transações financeiras em conformidade com as diretrizes do Banco Central do Brasil (Bacen) para o ecossistema PIX e padrões internacionais PCI-DSS para cartões de crédito.
+            </p>
+          </div>
+        </div>
+
+        <div style="background:var(--bg-surface-elevated); padding:1.25rem; border-radius:var(--radius-md); border:1px solid var(--border-color); font-size:0.85rem; color:var(--text-secondary);">
+          <strong>Nota de Governança:</strong> As políticas e termos da plataforma Vendendo Soluções passam por revisão contínua por assessoria jurídica especializada para garantir pronta adaptação a quaisquer alterações legislativas ou regulatórias supervenientes.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       VIEW: MEUS PEDIDOS & HISTÓRICO
+       ========================================================================= -->
+  <section id="view-my-orders" class="view-container" style="display:none;">
+    <div class="container" style="max-width:900px; margin:2rem auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+        <div>
+          <h2>Meus Pedidos & Compras</h2>
+          <p style="margin:0;">Acompanhe o status de entrega e notas fiscais de cada lojista.</p>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="App.navigate('home')">Continuar Comprando</button>
+      </div>
+
+      <div id="my-orders-list">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       MODALS ROOT
+       ========================================================================= -->
+
+  <!-- Modal: Product Details -->
+  <div class="modal-overlay" id="modal-product-detail">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-prod-title">Detalhes do Produto</h3>
+        <button class="modal-close-btn" onclick="App.closeModal('modal-product-detail')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-product-layout">
+          <div>
+            <div class="gallery-main">
+              <img id="modal-prod-img" src="" alt="Produto">
+            </div>
+            <!-- CDC Guarantee Badge -->
+            <div style="margin-top:1rem; padding:0.75rem 1rem; background:var(--bg-surface-elevated); border-radius:var(--radius-md); border:1px solid var(--border-color); font-size:0.8rem; display:flex; gap:0.5rem; align-items:center;">
+              <span>⚖️</span>
+              <span>Garantia legal de 90 dias + Devolução grátis em até 7 dias corridos (CDC Art. 49).</span>
+            </div>
+          </div>
+          <div>
+            <div id="modal-prod-store" style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.5rem;"></div>
+            <div class="price-current" style="margin-bottom:0.5rem;">
+              <span class="price-value" id="modal-prod-price" style="font-size:1.8rem; color:var(--primary);"></span>
+            </div>
+            <p id="modal-prod-desc" style="font-size:0.9rem; line-height:1.5; margin-bottom:1.25rem;"></p>
+
+            <!-- CEP Shipping Calculator -->
+            <div class="shipping-calc-box">
+              <label class="form-label">Simular Frete e Prazo de Entrega</label>
+              <div class="shipping-input-group">
+                <input type="text" id="modal-shipping-cep" class="form-control" placeholder="Digite seu CEP (ex: 01310-200)" maxlength="9">
+                <button class="btn btn-secondary btn-sm" onclick="App.calculateModalShipping()">Calcular</button>
+              </div>
+              <div class="shipping-results-list" id="modal-shipping-results"></div>
+            </div>
+
+            <!-- Technical Specs Table -->
+            <h4 style="margin-top:1.5rem; margin-bottom:0.5rem; font-size:0.95rem;">Especificações Técnicas</h4>
+            <table class="data-table" style="font-size:0.8rem; margin-bottom:1.5rem;">
+              <tbody id="modal-prod-specs-body"></tbody>
+            </table>
+
+            <button class="btn btn-primary btn-lg" id="modal-prod-buy-btn" style="width:100%;">
+              🛒 Adicionar ao Carrinho de Compras
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Login -->
+  <div class="modal-overlay" id="modal-login">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Acesso Seguro à Plataforma</h3>
+        <button class="modal-close-btn" onclick="App.closeModal('modal-login')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="login-error-msg" style="display:none; padding:0.75rem 1rem; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); border-radius:var(--radius-md); color:#F87171; font-size:0.85rem; margin-bottom:1rem;"></div>
+        
+        <!-- Google Sign-In Button -->
+        <button type="button" class="btn btn-outline btn-lg" style="width:100%; margin-bottom:1.25rem; display:flex; align-items:center; justify-content:center; gap:0.75rem;" onclick="FirebaseBridge.signInWithGoogle()">
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          Entrar com Conta Google
+        </button>
+
+        <div style="display:flex; align-items:center; text-align:center; margin-bottom:1.25rem;">
+          <hr style="flex:1; border:none; border-top:1px solid var(--border-color);">
+          <span style="padding:0 10px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">ou acesse com e-mail</span>
+          <hr style="flex:1; border:none; border-top:1px solid var(--border-color);">
+        </div>
+
+        <form id="form-login">
+          <div class="form-group">
+            <label class="form-label">E-mail Cadastrado</label>
+            <input type="email" id="login-email" class="form-control" placeholder="seuemail@exemplo.com.br" required value="carlos.silva@exemplo.com.br">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Senha de Acesso</label>
+            <input type="password" id="login-password" class="form-control" placeholder="Sua senha secreta" required value="123456">
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; font-size:0.825rem;">
+            <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+              <input type="checkbox" checked> Lembrar minha sessão
+            </label>
+            <a href="javascript:void(0)" onclick="Auth.recoverPassword(document.getElementById('login-email').value)">Esqueci minha senha</a>
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">
+            Entrar com Segurança
+          </button>
+        </form>
+
+        <div style="text-align:center; margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid var(--border-color); font-size:0.85rem;">
+          Não tem uma conta ainda?
+          <div style="display:flex; gap:0.5rem; justify-content:center; margin-top:0.75rem;">
+            <button class="btn btn-outline btn-sm" onclick="App.closeAllModals(); App.openModal('modal-register-client');">Sou Cliente</button>
+            <button class="btn btn-outline btn-sm" onclick="App.closeAllModals(); App.openModal('modal-register-merchant');">Sou Lojista</button>
+            <button class="btn btn-outline btn-sm" onclick="App.closeAllModals(); App.openModal('modal-register-partner');">Sou Parceiro</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: 2FA Verification -->
+  <div class="modal-overlay" id="modal-2fa">
+    <div class="modal-dialog" style="max-width:440px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Autenticação em 2 Etapas (2FA)</h3>
+        <button class="modal-close-btn" onclick="App.closeModal('modal-2fa')">✕</button>
+      </div>
+      <div class="modal-body" style="text-align:center;">
+        <div style="font-size:2.5rem; margin-bottom:0.5rem;">📱</div>
+        <h4>Código de Confirmação</h4>
+        <p style="font-size:0.85rem;">Para sua proteção, enviamos um código de segurança de 6 dígitos para o e-mail: <strong id="2fa-email-hint"></strong></p>
+        
+        <div class="form-group" style="max-width:220px; margin:1.5rem auto;">
+          <input type="text" id="2fa-code-input" class="form-control" placeholder="123456" maxlength="6" style="text-align:center; font-size:1.5rem; letter-spacing:0.3em; font-weight:800;" value="123456">
+        </div>
+        <button class="btn btn-primary" id="btn-verify-2fa" style="width:100%;">
+          Verificar e Acessar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Client Registration -->
+  <div class="modal-overlay" id="modal-register-client">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Cadastro de Cliente</h3>
+        <button class="modal-close-btn" onclick="App.closeModal('modal-register-client')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-register-client">
+          <div class="form-group">
+            <label class="form-label">Nome Completo <span class="required">*</span></label>
+            <input type="text" id="reg-name" class="form-control" placeholder="Ex: Mariana Costa Silva" required>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label">E-mail <span class="required">*</span></label>
+              <input type="email" id="reg-email" class="form-control" placeholder="mariana@exemplo.com.br" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">CPF <span class="required">*</span></label>
+              <input type="text" id="reg-cpf" class="form-control" placeholder="000.000.000-00" required>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label">Telefone / WhatsApp</label>
+              <input type="text" id="reg-phone" class="form-control" placeholder="(11) 98765-4321">
+            </div>
+            <div class="form-group">
+              <label class="form-label">CEP Residencial</label>
+              <input type="text" id="reg-cep" class="form-control" placeholder="01310-200">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Criar Senha Segura <span class="required">*</span></label>
+            <input type="password" id="reg-password" class="form-control" placeholder="Mínimo 8 dígitos com números e letras" required>
+          </div>
+          <div class="form-group">
+            <div style="background:var(--bg-surface-elevated); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1rem; margin-bottom:0.75rem;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
+                <strong style="font-size:0.85rem;">📋 Termos, Permissões e Políticas Obrigatórias</strong>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="App.openModal('modal-terms-read')" style="padding:0.25rem 0.75rem; font-size:0.75rem;">
+                  Ler Termos Completos
+                </button>
+              </div>
+              <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.6;">
+                <strong>Ao criar sua conta, você concorda e autoriza:</strong>
+                <ul style="margin:0.5rem 0 0 0; padding-left:1.25rem;">
+                  <li>Tratamento de dados pessoais conforme <a href="javascript:void(0)" onclick="App.navigate('policy-lgpd')">LGPD (Lei 13.709/2018)</a></li>
+                  <li>Termos de Uso e Condições de Compra/Venda da plataforma</li>
+                  <li>Política de Diversidade, Inclusão e Respeito (proibido discriminação, assédio, ódio)</li>
+                  <li>Comunicações transacionais por e-mail/WhatsApp (pedidos, entregas, pagamentos)</li>
+                  <li>Compartilhamento de dados essenciais com lojistas/parceiros para cumprimento do pedido</li>
+                  <li>Direito de arrependimento em 7 dias (CDC Art. 49) e solicitação de exclusão de dados (LGPD Art. 18)</li>
+                </ul>
+              </div>
+            </div>
+            <label style="display:flex; align-items:flex-start; gap:0.5rem; font-size:0.8rem; cursor:pointer;">
+              <input type="checkbox" id="reg-terms" required>
+              <span><strong>Li e concordo</strong> com todos os termos, políticas e autorizações acima.</span>
+            </label>
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg" style="width:100%;" id="btn-submit-client" disabled>
+            Criar Minha Conta Grátis
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Merchant Registration -->
+  <div class="modal-overlay" id="modal-register-merchant">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title">🏪 Cadastro de Lojista / Empresa Parceira</h3>
+        <button class="modal-close-btn" onclick="App.closeModal('modal-register-merchant')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-register-merchant">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label">Razão Social da Empresa <span class="required">*</span></label>
+              <input type="text" id="mreg-legal-name" class="form-control" placeholder="Ex: Inova Comercial Ltda" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nome Fantasia da Loja <span class="required">*</span></label>
+              <input type="text" id="mreg-trade-name" class="form-control" placeholder="Ex: Mega Inovações" required>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label">CNPJ ou Identificação Aplicável <span class="required">*</span></label>
+              <input type="text" id="mreg-cnpj" class="form-control" placeholder="00.000.000/0001-00" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Segmento / Categoria da Loja <span class="required">*</span></label>
+              <select id="mreg-category" class="form-control form-select">
+                <option value="Tecnologia & Software">Tecnologia & Software</option>
+                <option value="Eletrônicos & Celulares">Eletrônicos & Celulares</option>
+                <option value="Moda Inclusiva">Moda & Vestuário Inclusivo</option>
+                <option value="Beleza & Cosméticos">Beleza Natural & Sustentável</option>
+                <option value="Serviços Profissionais">Serviços & Consultoria</option>
+                <option value="Logística & Distribuição">Logística & Transportes</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label">E-mail Comercial <span class="required">*</span></label>
+              <input type="email" id="mreg-email" class="form-control" placeholder="contato@minhaloja.com.br" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Chave PIX para Repasse de Vendas <span class="required">*</span></label>
+              <input type="text" class="form-control" placeholder="CNPJ, E-mail ou Chave Aleatória" required value="repasse@minhaloja.com.br">
+            </div>
+          </div>
+          <div class="form-group">
+            <label style="display:flex; align-items:flex-start; gap:0.5rem; font-size:0.8rem; cursor:pointer;">
+              <input type="checkbox" id="mreg-terms" required checked>
+              <span>Declaro a veracidade dos dados fiscais fornecidos em conformidade com o Decreto 7.962/2013 do Comércio Eletrônico e concordo com as regras de convivência e diversidade da plataforma.</span>
+            </label>
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">
+            Criar Loja e Acessar Painel do Vendedor
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Partner Registration -->
+  <div class="modal-overlay" id="modal-register-partner">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">🤝 Cadastro de Parceiro de Ecossistema</h3>
+        <button class="modal-close-btn" onclick="App.closeModal('modal-register-partner')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-register-partner">
+          <div class="form-group">
+            <label class="form-label">Nome da Empresa / Parceiro <span class="required">*</span></label>
+            <input type="text" id="preg-company" class="form-control" placeholder="Ex: Swift Logística S.A." required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo de Parceria <span class="required">*</span></label>
+            <select id="preg-type" class="form-control form-select">
+              <option value="Logística & Transportes">Logística & Transportes</option>
+              <option value="Tecnologia & APIs">Tecnologia, SaaS & APIs</option>
+              <option value="Pagamentos & Fintech">Soluções de Pagamento / Fintech</option>
+              <option value="Marketing & Tráfego">Marketing Digital & Performance</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">E-mail de Contato Corporativo <span class="required">*</span></label>
+            <input type="email" id="preg-email" class="form-control" placeholder="parcerias@empresa.com.br" required>
+          </div>
+          <button type="submit" class="btn btn-secondary btn-lg" style="width:100%;">
+            Credenciar Parceiro
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Report / Complaint (Canal Ético) -->
+  <div class="modal-overlay" id="modal-report">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">⚠️ Canal Ético de Denúncias</h3>
+        <button class="modal-close-btn" onclick="App.closeModal('modal-report')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.25rem;">
+          Garantia de total anonimato e sigilo. Proibida discriminação, assédio, produto ilegal, fraude ou conduta abusiva.
+        </p>
+        <form id="form-submit-report">
+          <div class="form-group">
+            <label class="form-label">Identificação do Alvo (Nome da Loja, Produto ou Usuário) <span class="required">*</span></label>
+            <input type="text" id="report-target-name" class="form-control" placeholder="Ex: Nome da loja ou título do item" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo de Alvo</label>
+            <select id="report-target-type" class="form-control form-select">
+              <option value="Loja">Loja / Vendedor</option>
+              <option value="Produto">Produto ou Serviço</option>
+              <option value="Comportamento">Comentário ou Comportamento</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Motivo da Violação <span class="required">*</span></label>
+            <select id="report-reason-select" class="form-control form-select">
+              <option value="Discriminação ou Preconceito">Discriminação, Preconceito ou Homofobia/Racismo</option>
+              <option value="Produto Ilegal ou Falsificado">Produto Ilegal, Perigoso ou sem Nota Fiscal</option>
+              <option value="Assédio ou Linguagem Ofensiva">Assédio moral, perseguição ou ameaças</option>
+              <option value="Fraude ou Violação de Direitos">Fraude financeira ou violação de direitos autorais</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Descrição dos Fatos <span class="required">*</span></label>
+            <textarea id="report-description" class="form-control" rows="4" placeholder="Descreva os detalhes para investigação de nossos moderadores..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-danger btn-lg" style="width:100%;">
+            Enviar Denúncia com Protocolo Seguro
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Live Tracking Simulator -->
+  <div class="modal-overlay" id="modal-tracking-live">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">🚚 Rastreamento em Tempo Real</h3>
+        <button class="modal-close-btn" onclick="App.closeModal('modal-tracking-live')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="background:var(--bg-surface-elevated); padding:1rem; border-radius:var(--radius-md); border:1px solid var(--border-color); margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">CÓDIGO DE RASTREAMENTO:</div>
+            <code id="track-modal-code" style="font-size:1.1rem; color:var(--secondary); font-weight:700;">VS948123789BR</code>
+          </div>
+          <span class="badge badge-success">Em Transporte</span>
+        </div>
+
+        <!-- Timeline steps -->
+        <div style="display:flex; flex-direction:column; gap:1.25rem; border-left:2px solid var(--primary); padding-left:1.5rem; margin-left:1rem;">
+          <div>
+            <div style="font-weight:700; font-size:0.9rem;">📍 Saiu para Entrega ao Destinatário</div>
+            <div style="font-size:0.8rem; color:var(--text-secondary);">Veículo elétrico Nexus Express em rota final • São Paulo / SP</div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Hoje às 09:15</div>
+          </div>
+          <div>
+            <div style="font-weight:700; font-size:0.9rem;">📦 Chegou ao Centro de Distribuição Metropolitano</div>
+            <div style="font-size:0.8rem; color:var(--text-secondary);">Triagem automatizada via código de barras 2D</div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Ontem às 21:40</div>
+          </div>
+          <div>
+            <div style="font-weight:700; font-size:0.9rem;">🏢 Objeto Postado pelo Lojista</div>
+            <div style="font-size:0.8rem; color:var(--text-secondary);">Embalagem conferida e nota fiscal eletrônica emitida</div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Ontem às 14:30</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Product / Service (Lojista) -->
+  <div class="modal-overlay" id="modal-add-product">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title">📦 Cadastrar Novo Item no Catálogo</h3>
+        <button class="modal-close-btn" onclick="App.closeModal('modal-add-product')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form onsubmit="Dashboards.handleSaveProduct(event)">
+          <div class="form-group">
+            <label class="form-label">Título do Produto ou Serviço <span class="required">*</span></label>
+            <input type="text" id="prod-form-title" class="form-control" placeholder="Ex: Monitor Gamer 27 165Hz ou Consultoria Fiscal" required>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label">Tipo de Oferta</label>
+              <select id="prod-form-type" class="form-control form-select">
+                <option value="product">Produto Físico</option>
+                <option value="service">Serviço / Consultoria Digital</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Categoria</label>
+              <select id="prod-form-category" class="form-control form-select">
+                <option value="cat-tec">Tecnologia & Software</option>
+                <option value="cat-eletronicos">Eletrônicos & Celulares</option>
+                <option value="cat-servicos">Serviços & Consultoria</option>
+                <option value="cat-logistica">Logística</option>
+                <option value="cat-moda">Moda Inclusiva</option>
+                <option value="cat-beleza">Beleza Sustentável</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label">Preço de Venda (R$) <span class="required">*</span></label>
+              <input type="number" step="0.01" id="prod-form-price" class="form-control" placeholder="99.90" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Preço Original 'De' (R$)</label>
+              <input type="number" step="0.01" id="prod-form-orig-price" class="form-control" placeholder="129.90">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Estoque Disponível</label>
+              <input type="number" id="prod-form-stock" class="form-control" value="10">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">URL da Imagem / Foto</label>
+            <input type="url" id="prod-form-image" class="form-control" placeholder="https://images.unsplash.com/...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Descrição Detalhada <span class="required">*</span></label>
+            <textarea id="prod-form-desc" class="form-control" rows="3" placeholder="Detalhes técnicos, benefícios, garantia..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">
+            Salvar e Publicar na Loja
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Order Success -->
+  <div class="modal-overlay" id="modal-order-success">
+    <div class="modal-dialog" style="text-align:center;">
+      <div class="modal-body" style="padding:2.5rem 1.5rem;">
+        <div style="width:70px; height:70px; border-radius:50%; background:var(--success-light); color:var(--success); font-size:2.5rem; display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem auto;">
+          ✓
+        </div>
+        <h2 style="margin-bottom:0.5rem;">Compra Concluída com Sucesso!</h2>
+        <p style="font-size:0.95rem; color:var(--text-secondary); margin-bottom:1.5rem;">
+          Seu pedido <strong id="success-order-id" style="color:var(--primary);"></strong> no valor de <strong id="success-order-total"></strong> foi aprovado.
+        </p>
+
+        <!-- Sub-orders per store -->
+        <div style="text-align:left; margin-bottom:1.5rem;">
+          <h4 style="font-size:0.9rem; margin-bottom:0.5rem;">Sub-pedidos emitidos por Lojista:</h4>
+          <div id="success-suborders-list"></div>
+        </div>
+
+        <div style="display:flex; gap:0.75rem; justify-content:center;">
+          <button class="btn btn-outline" onclick="App.closeAllModals(); App.navigate('my-orders');">
+            Ver em Meus Pedidos
+          </button>
+          <button class="btn btn-primary" onclick="App.closeAllModals(); App.openTrackingModal(document.getElementById('success-tracking-code').textContent);">
+            🔍 Rastrear Entrega Agora
+          </button>
+        </div>
+        <span id="success-tracking-code" style="display:none;"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       DRAWERS
+       ========================================================================= -->
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+
+  <!-- Cart Slide-Over Drawer -->
+  <aside class="drawer-panel" id="cart-drawer">
+    <div class="drawer-header">
+      <h3 style="display:flex; align-items:center; gap:0.5rem; font-size:1.15rem;">
+        🛒 Carrinho de Compras
+      </h3>
+      <button class="btn btn-ghost btn-sm" onclick="App.closeDrawer('cart-drawer')">✕</button>
+    </div>
+    
+    <div class="drawer-body">
+      <!-- Empty state -->
+      <div id="cart-empty-state" style="text-align:center; padding:3rem 1rem;">
+        <div style="font-size:3rem; margin-bottom:1rem;">🛍️</div>
+        <h4>Seu carrinho está vazio</h4>
+        <p style="font-size:0.85rem;">Navegue pelos produtos e serviços para adicionar itens ao seu carrinho.</p>
+        <button class="btn btn-primary btn-sm" onclick="App.closeDrawer('cart-drawer'); App.navigate('home');" style="margin-top:1rem;">
+          Explorar Ofertas
+        </button>
+      </div>
+
+      <!-- Items list grouped by store -->
+      <div id="cart-drawer-items"></div>
+    </div>
+
+    <div class="drawer-footer" id="cart-drawer-footer" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <span style="font-weight:600;">Subtotal dos Produtos:</span>
+        <strong id="cart-subtotal" style="font-size:1.2rem; color:var(--primary);">R$ 0,00</strong>
+      </div>
+      <button class="btn btn-primary btn-lg" style="width:100%;" onclick="CartCheckout.startCheckout()">
+        Avançar para o Checkout Seguro →
+      </button>
+    </div>
+  </aside>
+
+  <!-- =========================================================================
+       COOKIE CONSENT FLOATING BANNER (LGPD)
+       ========================================================================= -->
+  <div class="cookie-banner" id="cookie-consent-banner">
+    <div style="font-size:0.85rem; line-height:1.4;">
+      🍪 <strong>Respeitamos sua privacidade (LGPD):</strong> Utilizamos cookies essenciais e tecnologias semelhantes para garantir o funcionamento seguro do marketplace, personalizar conteúdos e analisar métricas de acesso.
+    </div>
+    <div style="display:flex; gap:0.5rem; flex-shrink:0;">
+      <button class="btn btn-outline btn-sm" onclick="PoliciesLGPD.acceptEssentialOnly()">Apenas Essenciais</button>
+      <button class="btn btn-primary btn-sm" onclick="PoliciesLGPD.acceptAllCookies()">Aceitar Todos</button>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Access Gate Modal - Verificação de E-mail e Celular -->
+  <div class="modal-overlay" id="modal-access-gate" style="display: flex;">
+    <div class="modal-dialog" style="max-width: 480px; margin: auto;">
+      <div class="modal-header" style="text-align: center; border-bottom: none; padding-bottom: 0.5rem;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #4F46E5 0%, #06B6D4 100%); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; font-size: 1.75rem;">🔐</div>
+        <h2 style="margin-bottom: 0.25rem;">Acesso Restrito</h2>
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">Verifique seu e-mail e celular para liberar o acesso completo à plataforma.</p>
+      </div>
+      <div class="modal-body" style="padding: 1.5rem 1.25rem;">
+        <!-- Step 1: Email Input -->
+        <div id="gate-step-email">
+          <form id="form-gate-email" onsubmit="AccessGate.sendEmailCode(event)">
+            <div class="form-group">
+              <label class="form-label">Seu melhor e-mail <span class="required">*</span></label>
+              <input type="email" id="gate-email-input" class="form-control" placeholder="seu@email.com" required autocomplete="email">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Celular com DDD <span class="required">*</span></label>
+              <input type="tel" id="gate-phone-input" class="form-control" placeholder="(11) 99999-9999" required autocomplete="tel">
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 0.5rem;">
+              <span id="gate-btn-text">Enviar Códigos de Verificação</span>
+              <span id="gate-btn-loading" style="display: none;">Enviando...</span>
+            </button>
+          </form>
+          <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 1rem;">
+            Ao continuar, você concorda com nossos <a href="javascript:void(0)" onclick="App.navigate('policy-terms')">Termos de Uso</a> e <a href="javascript:void(0)" onclick="App.navigate('policy-lgpd')">Política de Privacidade LGPD</a>.
+          </p>
+        </div>
+
+        <!-- Step 2: Code Verification -->
+        <div id="gate-step-code" style="display: none;">
+          <div style="text-align: center; margin-bottom: 1rem;">
+            <p style="font-size: 0.9rem;">Enviamos códigos de 6 dígitos para:</p>
+            <p id="gate-sent-to-email" style="font-weight: 600; color: var(--primary);"></p>
+            <p id="gate-sent-to-phone" style="font-weight: 600; color: var(--primary);"></p>
+          </div>
+          <form id="form-gate-code" onsubmit="AccessGate.verifyCodes(event)">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+              <div class="form-group">
+                <label class="form-label">Código do E-mail</label>
+                <input type="text" id="gate-code-email" class="form-control" maxlength="6" pattern="\d{6}" placeholder="000000" required autocomplete="one-time-code">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Código do SMS</label>
+                <input type="text" id="gate-code-phone" class="form-control" maxlength="6" pattern="\d{6}" placeholder="000000" required autocomplete="one-time-code">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-success btn-lg" style="width: 100%;">
+              Verificar e Liberar Acesso
+            </button>
+          </form>
+          <div style="text-align: center; margin-top: 1rem;">
+            <button class="btn btn-ghost btn-sm" onclick="AccessGate.resendCodes()">
+              🔄 Reenviar códigos (<span id="gate-resend-timer">60</span>s)
+            </button>
+          </div>
+        </div>
+
+        <!-- Dev Bypass (hidden by default, visible with Ctrl+Shift+D) -->
+        <div id="gate-dev-bypass" style="display: none; text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+          <button class="btn btn-outline btn-sm" onclick="AccessGate.devBypass()">Modo Desenvolvedor (Pular Verificação)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MOBILE BOTTOM NAVIGATION BAR
+       ========================================================================= -->
+  <nav class="mobile-bottom-nav">
+    <a class="mobile-nav-item active" data-view="home" onclick="App.navigate('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <span>Início</span>
+    </a>
+    <a class="mobile-nav-item" onclick="document.getElementById('global-search-input').focus(); window.scrollTo({top:0, behavior:'smooth'});">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <span>Buscar</span>
+    </a>
+    <a class="mobile-nav-item" data-view="my-orders" onclick="App.navigate('my-orders')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      <span>Pedidos</span>
+    </a>
+    <a class="mobile-nav-item" onclick="App.openDrawer('cart-drawer')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      <span class="mobile-nav-badge" id="mobile-cart-count">0</span>
+      <span>Carrinho</span>
+    </a>
+    <a class="mobile-nav-item" onclick="App.openModal('modal-login')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>Perfil</span>
+    </a>
+  </nav>
+
+  <!-- =========================================================================
+       COMPLETE FOOTER
+       ========================================================================= -->
+  <footer style="background:var(--bg-surface); border-top:1px solid var(--border-color); padding:4rem 0 2rem 0; margin-top:auto;">
+    <div class="container">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:2.5rem; margin-bottom:3rem;">
+        
+        <!-- Col 1: Brand Info -->
+        <div>
+          <div class="brand-logo" style="margin-bottom:1rem;" onclick="App.navigate('home')">
+            <div class="brand-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+            <div class="brand-title">
+              <span class="main-text">Vendendo <span class="text-gradient">Soluções</span></span>
+            </div>
+          </div>
+          <p style="font-size:0.875rem; color:var(--text-secondary); line-height:1.6;">
+            A plataforma digital que conecta compradores, lojistas, prestadores de serviços, empresas de tecnologia e parceiros logísticos com máxima eficiência, segurança e compromisso ético.
+          </p>
+          <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+            <span class="badge badge-primary">SSL 256-bit</span>
+            <span class="badge badge-success">LGPD Ativo</span>
+          </div>
+        </div>
+
+        <!-- Col 2: Institucional & Diretrizes -->
+        <div>
+          <h4 style="margin-bottom:1.25rem;">Institucional & Ética</h4>
+          <ul style="list-style:none; display:flex; flex-direction:column; gap:0.6rem; font-size:0.875rem;">
+            <li><a href="javascript:void(0)" onclick="App.navigate('home')">Página Inicial</a></li>
+            <li><a href="javascript:void(0)" onclick="App.navigate('policy-diversity')">Diversidade, Inclusão e Respeito</a></li>
+            <li><a href="javascript:void(0)" onclick="App.openModal('modal-report')">Canal de Denúncias e Ética</a></li>
+            <li><a href="javascript:void(0)" onclick="App.navigate('policy-lgpd')">Central de Privacidade LGPD</a></li>
+            <li><a href="javascript:void(0)" onclick="App.navigate('policy-terms')">Termos e Condições de Uso</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 3: Para Vendedores & Parceiros -->
+        <div>
+          <h4 style="margin-bottom:1.25rem;">Negócios & Parcerias</h4>
+          <ul style="list-style:none; display:flex; flex-direction:column; gap:0.6rem; font-size:0.875rem;">
+            <li><a href="javascript:void(0)" onclick="App.openModal('modal-register-merchant')">Vender na Plataforma</a></li>
+            <li><a href="javascript:void(0)" onclick="App.navigate('dashboard-seller')">Painel do Lojista</a></li>
+            <li><a href="javascript:void(0)" onclick="App.openModal('modal-register-partner')">Parceria Logística & Tech</a></li>
+            <li><a href="javascript:void(0)" onclick="App.navigate('dashboard-partner')">Documentação de APIs REST</a></li>
+            <li><a href="javascript:void(0)" onclick="App.navigate('dashboard-admin')">Acesso Governança Admin</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 4: Atendimento & Segurança -->
+        <div>
+          <h4 style="margin-bottom:1.25rem;">Atendimento & SAC</h4>
+          <p style="font-size:0.85rem; margin-bottom:0.5rem;">Segunda a Sexta, das 08h às 20h</p>
+          <p style="font-size:0.85rem; margin-bottom:0.5rem;"><strong>E-mail:</strong> sac@vendendosolucoes.com.br</p>
+          <p style="font-size:0.85rem; margin-bottom:1rem;"><strong>DPO / LGPD:</strong> dpo@vendendosolucoes.com.br</p>
+          <div style="font-size:0.775rem; color:var(--text-muted); line-height:1.5;">
+            Conforme Código de Defesa do Consumidor (Lei 8.078/1990) e Decreto 7.962/2013.
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Legal Disclosure Strip -->
+      <div style="border-top:1px solid var(--border-color); padding-top:2rem; text-align:center; font-size:0.775rem; color:var(--text-muted); line-height:1.6;">
+        <p>Vendendo Soluções Tecnologia e Marketplace Intermediação de Negócios S.A. • CNPJ: 48.910.231/0001-92</p>
+        <p>Avenida Paulista, 1578, Bela Vista, São Paulo - SP, CEP 01310-200 • Todos os direitos reservados © 2026</p>
+        <p style="margin-top:0.4rem;">
+          O marketplace intermedia operações comerciais entre lojistas e compradores com base no Marco Civil da Internet (Lei 12.965/2014), LGPD (Lei 13.709/2018) e Código de Defesa do Consumidor.
+        </p>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- Firebase SDKs (Compat CDN) & Cloud Bridge -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
+  <script src="/js/firebase-config.js"></script>
+
+  <!-- Application Scripts -->
+  <script src="/js/data.js"></script>
+  <script src="/js/store.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/cart-checkout.js"></script>
+  <script src="/js/dashboards.js"></script>
+  <script src="/js/policies-lgpd.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
