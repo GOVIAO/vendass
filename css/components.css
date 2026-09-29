@@ -86,6 +86,10 @@
   overflow: hidden;
 }
 
+.brand-icon svg {
+  animation: floatUpDown 3s ease-in-out infinite;
+}
+
 .brand-icon::after {
   content: '';
   position: absolute;

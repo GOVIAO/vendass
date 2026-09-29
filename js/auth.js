@@ -13,11 +13,9 @@ const Auth = {
     input.classList.add("input-error");
     input.setAttribute("aria-invalid", "true");
     
-    // Remove existing error message
     const existingError = input.parentNode.querySelector(".field-error");
     if (existingError) existingError.remove();
     
-    // Add error message
     const errorEl = document.createElement("div");
     errorEl.className = "field-error";
     errorEl.textContent = message;
@@ -60,6 +58,85 @@ const Auth = {
       }
     });
     return valid;
+  },
+
+  // Firebase Auth integration
+  async firebaseLogin(email, password) {
+    if (!FirebaseBridge.auth) {
+      store.showToast("Firebase Auth não inicializado", "error");
+      return null;
+    }
+    try {
+      const result = await FirebaseBridge.auth.signInWithEmailAndPassword(email, password);
+      return result.user;
+    } catch (err) {
+      const msg = this.getFirebaseErrorMessage(err.code);
+      store.showToast(msg, "error");
+      throw err;
+    }
+  },
+
+  getFirebaseErrorMessage(code) {
+    const messages = {
+      "auth/user-not-found": "Usuário não encontrado",
+      "auth/wrong-password": "Senha incorreta",
+      "auth/invalid-email": "E-mail inválido",
+      "auth/user-disabled": "Conta desativada",
+      "auth/too-many-requests": "Muitas tentativas. Tente novamente mais tarde",
+      "auth/network-request-failed": "Erro de conexão"
+    };
+    return messages[code] || "Erro de autenticação";
+  },
+
+  // TOTP 2FA Setup (Authenticator App)
+  async setupTOTP(user) {
+    if (!FirebaseBridge.auth || !user) return null;
+    try {
+      const multiFactor = user.multiFactor;
+      const session = await multiFactor.getSession();
+      const totpSecret = await multiFactor.enroll(new firebase.auth.TotpMultiFactorGenerator(), "Authenticator App", session);
+      return totpSecret;
+    } catch (err) {
+      console.error("TOTP setup error:", err);
+      return null;
+    }
+  },
+
+  // Verify TOTP code
+  async verifyTOTP(user, code) {
+    if (!FirebaseBridge.auth || !user) return false;
+    try {
+      const multiFactor = user.multiFactor;
+      const session = await multiFactor.getSession();
+      const credential = firebase.auth.TotpMultiFactorGenerator.assertionForEnrollment(code, session);
+      await multiFactor.enroll(credential, "Authenticator App");
+      return true;
+    } catch (err) {
+      console.error("TOTP verify error:", err);
+      return false;
+    }
+  },
+
+  // Sign in with email/password + TOTP
+  async signInWithEmailAndTOTP(email, password, totpCode) {
+    try {
+      const result = await FirebaseBridge.auth.signInWithEmailAndPassword(email, password);
+      const user = result.user;
+      
+      // If user has 2FA enrolled, verify TOTP
+      if (user.multiFactor && user.multiFactor.enrolledFactors.length > 0) {
+        const multiFactor = user.multiFactor;
+        const session = await multiFactor.getSession();
+        const credential = firebase.auth.TotpMultiFactorAssertion(code);
+        await user.multiFactor.resolveSignIn(credential, session);
+      }
+      
+      return user;
+    } catch (err) {
+      const msg = this.getFirebaseErrorMessage(err.code);
+      store.showToast(msg, "error");
+      throw err;
+    }
   },
 
   init() {
@@ -146,37 +223,67 @@ const Auth = {
     this.failedAttempts[email] = 0;
     this.clearFieldError("login-password");
 
-    // Check if user exists and determine if 2FA is required
-    const users = store.getUsers ? store.getUsers() : [];
-    const existingUser = users.find(u => u.email === email);
-    const isAdmin = existingUser && existingUser.role === "admin";
-    const requires2FA = isAdmin || true;
-    
-    if (requires2FA) {
-      this.show2FAModal(email, () => {
-        store.loginUser(email, pass);
-        App.closeAllModals();
-        store.showToast(isAdmin ? "Login de administrador autenticado com 2FA!" : "Login autenticado com sucesso via 2FA!", "success", "Bem-vindo(a)!");
-        App.updateNavUser();
-        App.navigate(isAdmin ? "dashboard-admin" : "home");
-      });
-      return;
-    }
+    // Use Firebase Auth for real authentication
+    this.firebaseLogin(email, pass).then(user => {
+      if (!user) return;
+      
+      // Check if user has 2FA enrolled
+      const has2FA = user.multiFactor && user.multiFactor.enrolledFactors.length > 0;
+      
+      if (has2FA) {
+        // Show TOTP verification modal
+        this.showTOTPModal(user, () => {
+          this.completeLogin(user);
+        });
+      } else {
+        // No 2FA, complete login directly
+        this.completeLogin(user);
+      }
+    }).catch(() => {
+      this.failedAttempts[email] = attempts + 1;
+    });
   },
 
-  show2FAModal(email, onVerified) {
+  completeLogin(user) {
+    const existingUser = store.getUsers ? store.getUsers().find(u => u.email === user.email) : null;
+    const isAdmin = existingUser && existingUser.role === "admin";
+    
+    store.loginUser(user.email, "firebase-auth");
+    App.closeAllModals();
+    store.showToast(isAdmin ? "Login de administrador autenticado!" : "Login realizado com sucesso!", "success", "Bem-vindo(a)!");
+    App.updateNavUser();
+    App.navigate(isAdmin ? "dashboard-admin" : "home");
+  },
+
+  showTOTPModal(user, onVerified) {
     App.openModal("modal-2fa");
     const emailHint = document.getElementById("2fa-email-hint");
-    if (emailHint) emailHint.textContent = email;
+    if (emailHint) emailHint.textContent = user.email;
+    
+    const titleEl = document.querySelector("#modal-2fa .modal-title");
+    if (titleEl) titleEl.textContent = "Autenticação 2FA (Authenticator App)";
+    
+    const descEl = document.querySelector("#modal-2fa p");
+    if (descEl) descEl.innerHTML = `Digite o código de 6 dígitos do seu aplicativo autenticador (Google Authenticator, Authy, Microsoft Authenticator)`;
 
     const btnVerify = document.getElementById("btn-verify-2fa");
     if (btnVerify) {
-      btnVerify.onclick = () => {
+      btnVerify.onclick = async () => {
         const code = document.getElementById("2fa-code-input").value.trim();
-        if (code.length === 6) {
+        if (code.length !== 6) {
+          store.showToast("Digite o código de 6 dígitos do autenticador", "warning");
+          return;
+        }
+        
+        try {
+          const multiFactor = user.multiFactor;
+          const session = await multiFactor.getSession();
+          const credential = firebase.auth.TotpMultiFactorAssertion(code);
+          await user.multiFactor.resolveSignIn(credential, session);
+          
           onVerified();
-        } else {
-          store.showToast("Digite o código de 6 dígitos enviado por e-mail/SMS (ex: 123456)", "warning");
+        } catch (err) {
+          store.showToast("Código inválido ou expirado", "error");
         }
       };
     }
@@ -206,25 +313,60 @@ const Auth = {
     const cep = document.getElementById("reg-cep").value.trim();
     const password = document.getElementById("reg-password").value;
 
-    const newUser = {
-      id: "usr-" + Date.now(),
-      name,
-      email,
-      cpf,
-      phone,
-      cep,
-      role: "client",
-      storeId: null,
-      mfaEnabled: true,
-      registeredAt: new Date().toISOString()
-    };
+    // Create user in Firebase Auth
+    if (FirebaseBridge.auth) {
+      FirebaseBridge.auth.createUserWithEmailAndPassword(email, password)
+        .then(result => {
+          const user = result.user;
+          user.updateProfile({ displayName: name });
+          
+          const newUser = {
+            id: "usr-" + user.uid.substring(0, 8),
+            firebaseUid: user.uid,
+            name,
+            email,
+            cpf,
+            phone,
+            cep,
+            role: "client",
+            storeId: null,
+            mfaEnabled: true,
+            registeredAt: new Date().toISOString()
+          };
 
-    store.set(STORAGE_KEYS.CURRENT_USER, newUser);
-    store.addAuditLog("USER_REGISTER", email, "Novo cliente cadastrado com aceite expresso de Termos e LGPD.");
-    store.showToast("Conta criada com sucesso! Enviamos a confirmação para seu e-mail.", "success", `Olá, ${name.split(" ")[0]}!`);
-    App.closeAllModals();
-    App.updateNavUser();
-    App.navigate("home");
+          store.set(STORAGE_KEYS.CURRENT_USER, newUser);
+          store.addAuditLog("USER_REGISTER", email, "Novo cliente cadastrado com aceite expresso de Termos e LGPD.");
+          store.showToast("Conta criada com sucesso! Enviamos a confirmação para seu e-mail.", "success", `Olá, ${name.split(" ")[0]}!`);
+          App.closeAllModals();
+          App.updateNavUser();
+          App.navigate("home");
+        })
+        .catch(err => {
+          const msg = this.getFirebaseErrorMessage(err.code);
+          store.showToast(msg, "error");
+        });
+    } else {
+      // Fallback to local storage if Firebase not available
+      const newUser = {
+        id: "usr-" + Date.now(),
+        name,
+        email,
+        cpf,
+        phone,
+        cep,
+        role: "client",
+        storeId: null,
+        mfaEnabled: true,
+        registeredAt: new Date().toISOString()
+      };
+
+      store.set(STORAGE_KEYS.CURRENT_USER, newUser);
+      store.addAuditLog("USER_REGISTER", email, "Novo cliente cadastrado com aceite expresso de Termos e LGPD.");
+      store.showToast("Conta criada com sucesso! (Modo local)", "success", `Olá, ${name.split(" ")[0]}!`);
+      App.closeAllModals();
+      App.updateNavUser();
+      App.navigate("home");
+    }
   },
 
   handleMerchantRegister(e) {
