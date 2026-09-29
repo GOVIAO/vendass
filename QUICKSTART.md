@@ -1,40 +1,44 @@
 # Quick Start - Vendendo Soluções
 
-## 🚀 Local Development (HTTPS)
+## 🚀 Local Development
+```bash
+# Netlify CLI (mirrors production redirects + headers)
+netlify dev
+# Open: http://localhost:8888
+```
 ```powershell
-# Start HTTPS server (accept self-signed cert in browser)
+# Alternative: HTTPS server (accept self-signed cert in browser)
 powershell -ExecutionPolicy Bypass -File server.ps1
 # Open: https://localhost:3000
 ```
 
-## 🌐 Deploy to Vercel (Production SSL Auto)
+## 🌐 Deploy to Netlify (Production SSL Auto)
 ```bash
 # 1. Push to GitHub
-git init && git add . && git commit -m "Init" && git branch -M main
-git remote add origin https://github.com/USER/vendendo-solucoes.git
-git push -u origin main
+git push origin main
 
-# 2. Import at https://vercel.com/new
-#    Framework: Other | Build: (empty) | Output: (empty)
+# 2. Netlify → Add new project → Import an existing project
+#    Build command: (empty) | Publish directory: . (set in netlify.toml)
 
-# 3. Add Environment Variables (from .env.example)
-#    VITE_FIREBASE_* | VITE_GA_MEASUREMENT_ID
+# 3. Firebase web config lives in js/firebase-config.js
+#    (static site: Netlify env vars are not injected into the browser)
 
 # 4. Firebase Console → Auth → Authorized domains
-#    Add: your-project.vercel.app
+#    Add: solucionando.netlify.app (and any custom domain)
 
 # 5. Deploy → Automatic HTTPS + HSTS
+#    Or via CLI: netlify deploy --prod
 ```
 
 ## ✅ Features Ready
 - **Access Gate**: Email + Phone verification before access
 - **2FA**: Mandatory for admins, optional for others
 - **Firebase**: Auth (Google/Email), Firestore, Analytics
-- **GA4**: Configurable via `VITE_GA_MEASUREMENT_ID`
+- **GA4**: Configurable via Firebase config
 - **LGPD**: Cookie consent, data rights, audit logs
 - **Multi-store Checkout**: Split orders by seller
 - **PWA**: Manifest + Service Worker ready
-- **Security**: HSTS, CSP headers, brute-force protection
+- **Security**: HSTS, security headers (netlify.toml), brute-force protection
 
 ## 🔐 Dev Bypass
 Press `Ctrl+Shift+D` on Access Gate to skip verification locally.

@@ -3,13 +3,11 @@
  * Project ID: vendedor-de-solu
  * Services: Authentication (Google + Email/Password), Cloud Firestore, and Google Analytics
  * 
- * Supports Vite/import.meta.env or window.ENV for Vercel/environment variables
+ * Supports window.ENV overrides (set before this script loads).
+ * Note: loaded as a classic <script>, so import.meta is not available here.
  */
 
 function getEnv(key, fallback) {
-  if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env[key]) {
-    return import.meta.env[key];
-  }
   if (typeof window !== "undefined" && window.ENV && window.ENV[key]) {
     return window.ENV[key];
   }

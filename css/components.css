@@ -84,6 +84,16 @@
   box-shadow: 0 4px 12px var(--primary-glow);
   position: relative;
   overflow: hidden;
+  animation: brandFloat 2.4s ease-in-out infinite;
+}
+
+@keyframes brandFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-icon { animation: none; }
 }
 
 .brand-icon::after {

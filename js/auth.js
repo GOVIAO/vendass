@@ -44,16 +44,16 @@ const Auth = {
 
   validateRequired(fields) {
     let valid = true;
-    fields.forEach(({ id, label, validator }) => {
+    fields.forEach(({ id, label, validator, requiredMsg, invalidMsg }) => {
       const input = document.getElementById(id);
       if (!input) return;
-      const value = input.value.trim();
-      
+      const value = input.type === "checkbox" ? (input.checked ? "on" : "") : input.value.trim();
+
       if (!value) {
-        this.showFieldError(id, `${label} é obrigatório`);
+        this.showFieldError(id, requiredMsg || `${label} é obrigatório`);
         valid = false;
       } else if (validator && !validator(value)) {
-        this.showFieldError(id, `${label} inválido`);
+        this.showFieldError(id, invalidMsg || `${label} inválido`);
         valid = false;
       } else {
         this.clearFieldError(id);
@@ -67,6 +67,15 @@ const Auth = {
   },
 
   bindEvents() {
+    // Clear a field's error indicator as soon as the user corrects it
+    ["input", "change"].forEach(type => {
+      document.addEventListener(type, (e) => {
+        if (e.target.id && e.target.classList && e.target.classList.contains("input-error")) {
+          this.clearFieldError(e.target.id);
+        }
+      });
+    });
+
     // Client registration form
     const clientForm = document.getElementById("form-register-client");
     if (clientForm) {
@@ -189,9 +198,9 @@ const Auth = {
     const fields = [
       { id: "reg-name", label: "Nome Completo" },
       { id: "reg-email", label: "E-mail", validator: v => v.includes("@") && v.includes(".") },
-      { id: "reg-cpf", label: "CPF", validator: v => v.replace(/\D/g, "").length === 11 },
-      { id: "reg-password", label: "Senha", validator: v => v.length >= 8 },
-      { id: "reg-terms", label: "Termos", validator: v => document.getElementById("reg-terms").checked }
+      { id: "reg-cpf", label: "CPF", validator: v => v.replace(/\D/g, "").length === 11, invalidMsg: "CPF deve ter 11 dígitos" },
+      { id: "reg-password", label: "Senha", validator: v => v.length >= 8, requiredMsg: "Senha é obrigatória", invalidMsg: "A senha deve ter no mínimo 8 caracteres" },
+      { id: "reg-terms", label: "Termos", requiredMsg: "É obrigatório concordar com os Termos de Uso e LGPD" }
     ];
 
     if (!this.validateRequired(fields)) {
@@ -232,12 +241,12 @@ const Auth = {
     this.clearAllErrors("form-register-merchant");
 
     const fields = [
-      { id: "mreg-legal-name", label: "Razão Social" },
+      { id: "mreg-legal-name", label: "Razão Social", requiredMsg: "Razão Social é obrigatória" },
       { id: "mreg-trade-name", label: "Nome Fantasia" },
-      { id: "mreg-cnpj", label: "CNPJ", validator: v => v.replace(/\D/g, "").length === 14 },
+      { id: "mreg-cnpj", label: "CNPJ", validator: v => v.replace(/\D/g, "").length === 14, invalidMsg: "CNPJ deve ter 14 dígitos" },
       { id: "mreg-email", label: "E-mail", validator: v => v.includes("@") && v.includes(".") },
-      { id: "mreg-category", label: "Categoria" },
-      { id: "mreg-terms", label: "Termos", validator: v => document.getElementById("mreg-terms").checked }
+      { id: "mreg-category", label: "Categoria", requiredMsg: "Categoria é obrigatória" },
+      { id: "mreg-terms", label: "Termos", requiredMsg: "É obrigatório aceitar o Acordo de Lojista e a Política da Plataforma" }
     ];
 
     if (!this.validateRequired(fields)) {
@@ -302,7 +311,7 @@ const Auth = {
     this.clearAllErrors("form-register-partner");
 
     const fields = [
-      { id: "preg-company", label: "Empresa" },
+      { id: "preg-company", label: "Empresa", requiredMsg: "Empresa é obrigatória" },
       { id: "preg-type", label: "Tipo de Parceria" },
       { id: "preg-email", label: "E-mail", validator: v => v.includes("@") && v.includes(".") }
     ];
