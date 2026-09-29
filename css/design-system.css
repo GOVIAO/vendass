@@ -357,6 +357,25 @@ a:hover { color: var(--secondary); }
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
+.form-control.input-error {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.field-error {
+  font-size: 0.75rem;
+  color: var(--danger);
+  margin-top: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.field-error::before {
+  content: "⚠";
+  font-size: 0.7rem;
+}
+
 .form-control::placeholder {
   color: var(--text-muted);
 }

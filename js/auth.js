@@ -6,6 +6,62 @@
 const Auth = {
   failedAttempts: {},
 
+  // Validation helpers
+  showFieldError(inputId, message) {
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    input.classList.add("input-error");
+    input.setAttribute("aria-invalid", "true");
+    
+    // Remove existing error message
+    const existingError = input.parentNode.querySelector(".field-error");
+    if (existingError) existingError.remove();
+    
+    // Add error message
+    const errorEl = document.createElement("div");
+    errorEl.className = "field-error";
+    errorEl.textContent = message;
+    input.parentNode.appendChild(errorEl);
+    return true;
+  },
+
+  clearFieldError(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.classList.remove("input-error");
+    input.removeAttribute("aria-invalid");
+    const existingError = input.parentNode.querySelector(".field-error");
+    if (existingError) existingError.remove();
+  },
+
+  clearAllErrors(formId) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+    form.querySelectorAll(".input-error").forEach(el => el.classList.remove("input-error"));
+    form.querySelectorAll(".field-error").forEach(el => el.remove());
+    form.querySelectorAll("[aria-invalid]").forEach(el => el.removeAttribute("aria-invalid"));
+  },
+
+  validateRequired(fields) {
+    let valid = true;
+    fields.forEach(({ id, label, validator }) => {
+      const input = document.getElementById(id);
+      if (!input) return;
+      const value = input.value.trim();
+      
+      if (!value) {
+        this.showFieldError(id, `${label} é obrigatório`);
+        valid = false;
+      } else if (validator && !validator(value)) {
+        this.showFieldError(id, `${label} inválido`);
+        valid = false;
+      } else {
+        this.clearFieldError(id);
+      }
+    });
+    return valid;
+  },
+
   init() {
     this.bindEvents();
   },
@@ -38,11 +94,30 @@ const Auth = {
 
   handleLogin(e) {
     e.preventDefault();
+    this.clearAllErrors("form-login");
+
     const email = document.getElementById("login-email").value.trim().toLowerCase();
     const pass = document.getElementById("login-password").value;
     const errorEl = document.getElementById("login-error-msg");
 
     if (errorEl) errorEl.style.display = "none";
+
+    // Validate required fields
+    if (!email) {
+      this.showFieldError("login-email", "E-mail é obrigatório");
+      return;
+    }
+    if (!email.includes("@") || !email.includes(".")) {
+      this.showFieldError("login-email", "E-mail inválido");
+      return;
+    }
+    this.clearFieldError("login-email");
+
+    if (!pass) {
+      this.showFieldError("login-password", "Senha é obrigatória");
+      return;
+    }
+    this.clearFieldError("login-password");
 
     // Brute force defense
     const attempts = this.failedAttempts[email] || 0;
@@ -62,22 +137,20 @@ const Auth = {
       this.failedAttempts[email] = attempts + 1;
       const left = 5 - (attempts + 1);
       const msg = `Senha inválida. Tentativas restantes antes do bloqueio: ${left}`;
-      if (errorEl) {
-        errorEl.textContent = msg;
-        errorEl.style.display = "block";
-      }
+      this.showFieldError("login-password", msg);
       store.addAuditLog("LOGIN_FAILED", email, `Senha incorreta informada (Tentativa ${attempts + 1}/5).`);
       return;
     }
 
     // Reset attempts on valid check
     this.failedAttempts[email] = 0;
+    this.clearFieldError("login-password");
 
     // Check if user exists and determine if 2FA is required
     const users = store.getUsers ? store.getUsers() : [];
     const existingUser = users.find(u => u.email === email);
     const isAdmin = existingUser && existingUser.role === "admin";
-    const requires2FA = isAdmin || true; // Always require 2FA for admins, configurable for others
+    const requires2FA = isAdmin || true;
     
     if (requires2FA) {
       this.show2FAModal(email, () => {
@@ -111,23 +184,27 @@ const Auth = {
 
   handleClientRegister(e) {
     e.preventDefault();
+    this.clearAllErrors("form-register-client");
+
+    const fields = [
+      { id: "reg-name", label: "Nome Completo" },
+      { id: "reg-email", label: "E-mail", validator: v => v.includes("@") && v.includes(".") },
+      { id: "reg-cpf", label: "CPF", validator: v => v.replace(/\D/g, "").length === 11 },
+      { id: "reg-password", label: "Senha", validator: v => v.length >= 8 },
+      { id: "reg-terms", label: "Termos", validator: v => document.getElementById("reg-terms").checked }
+    ];
+
+    if (!this.validateRequired(fields)) {
+      store.showToast("Preencha todos os campos obrigatórios corretamente", "warning");
+      return;
+    }
+
     const name = document.getElementById("reg-name").value.trim();
     const email = document.getElementById("reg-email").value.trim().toLowerCase();
     const cpf = document.getElementById("reg-cpf").value.trim();
     const phone = document.getElementById("reg-phone").value.trim();
     const cep = document.getElementById("reg-cep").value.trim();
     const password = document.getElementById("reg-password").value;
-    const terms = document.getElementById("reg-terms").checked;
-
-    if (!terms) {
-      store.showToast("É obrigatório concordar com os Termos de Uso e LGPD.", "warning");
-      return;
-    }
-
-    if (password.length < 8) {
-      store.showToast("A senha deve ter no mínimo 8 caracteres para sua segurança.", "warning");
-      return;
-    }
 
     const newUser = {
       id: "usr-" + Date.now(),
@@ -152,17 +229,27 @@ const Auth = {
 
   handleMerchantRegister(e) {
     e.preventDefault();
+    this.clearAllErrors("form-register-merchant");
+
+    const fields = [
+      { id: "mreg-legal-name", label: "Razão Social" },
+      { id: "mreg-trade-name", label: "Nome Fantasia" },
+      { id: "mreg-cnpj", label: "CNPJ", validator: v => v.replace(/\D/g, "").length === 14 },
+      { id: "mreg-email", label: "E-mail", validator: v => v.includes("@") && v.includes(".") },
+      { id: "mreg-category", label: "Categoria" },
+      { id: "mreg-terms", label: "Termos", validator: v => document.getElementById("mreg-terms").checked }
+    ];
+
+    if (!this.validateRequired(fields)) {
+      store.showToast("Preencha todos os campos obrigatórios corretamente", "warning");
+      return;
+    }
+
     const legalName = document.getElementById("mreg-legal-name").value.trim();
     const tradeName = document.getElementById("mreg-trade-name").value.trim();
     const cnpj = document.getElementById("mreg-cnpj").value.trim();
     const email = document.getElementById("mreg-email").value.trim().toLowerCase();
     const category = document.getElementById("mreg-category").value;
-    const terms = document.getElementById("mreg-terms").checked;
-
-    if (!terms) {
-      store.showToast("É obrigatório aceitar o Acordo de Lojista e a Política da Plataforma.", "warning");
-      return;
-    }
 
     // Create store
     const storeId = "store-" + tradeName.toLowerCase().replace(/[^a-z0-9]/g, "-") + "-" + Math.floor(Math.random()*100);
@@ -174,7 +261,7 @@ const Auth = {
       category,
       rating: 5.0,
       reviewCount: 0,
-      verified: true, // Auto-verified for interactive demo
+      verified: true,
       city: "São Paulo",
       state: "SP",
       responseTime: "< 1 hora",
@@ -188,7 +275,6 @@ const Auth = {
     stores.push(newStore);
     store.set(STORAGE_KEYS.STORES, stores);
 
-    // Sync to Firestore
     if (typeof FirebaseBridge !== "undefined") {
       FirebaseBridge.saveStoreToFirestore(newStore);
     }
@@ -213,6 +299,19 @@ const Auth = {
 
   handlePartnerRegister(e) {
     e.preventDefault();
+    this.clearAllErrors("form-register-partner");
+
+    const fields = [
+      { id: "preg-company", label: "Empresa" },
+      { id: "preg-type", label: "Tipo de Parceria" },
+      { id: "preg-email", label: "E-mail", validator: v => v.includes("@") && v.includes(".") }
+    ];
+
+    if (!this.validateRequired(fields)) {
+      store.showToast("Preencha todos os campos obrigatórios corretamente", "warning");
+      return;
+    }
+
     const company = document.getElementById("preg-company").value.trim();
     const type = document.getElementById("preg-type").value;
     const email = document.getElementById("preg-email").value.trim().toLowerCase();
