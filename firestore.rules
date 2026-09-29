@@ -38,7 +38,7 @@ service cloud.firestore {
 
     // User profiles
     match /users/{userId} {
-      allow read, write: if isOwner(userId) || true;
+      allow read, write: if isOwner(userId);
     }
 
     // Security & Audit logs

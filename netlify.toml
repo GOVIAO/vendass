@@ -1,0 +1,24 @@
+# Site estático — sem etapa de build
+[build]
+  publish = "."
+  command = ""
+
+# Fallback de SPA: arquivos existentes (assets/, css/, js/, manifest.json)
+# são servidos normalmente; demais rotas caem em index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+
+# Sem cache "immutable": os arquivos não têm hash no nome, então o cache padrão
+# do Netlify (revalidação por ETag) garante que cada deploy chegue aos visitantes.

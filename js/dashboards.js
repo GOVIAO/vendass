@@ -98,6 +98,27 @@ const Dashboards = {
   },
 
   openAddProductModal() {
+    this.editingProductId = null;
+    const modal = document.getElementById("modal-add-product");
+    modal.querySelector("form").reset();
+    modal.querySelector(".modal-title").textContent = "📦 Cadastrar Novo Item no Catálogo";
+    App.openModal("modal-add-product");
+  },
+
+  editProduct(productId) {
+    const p = store.getProducts().find(prod => prod.id === productId);
+    if (!p) return store.showToast("Item não encontrado.", "error");
+
+    this.editingProductId = productId;
+    document.getElementById("prod-form-title").value = p.title || "";
+    document.getElementById("prod-form-type").value = p.type || "product";
+    document.getElementById("prod-form-category").value = p.category || "cat-tec";
+    document.getElementById("prod-form-price").value = p.price ?? "";
+    document.getElementById("prod-form-orig-price").value = p.originalPrice ?? "";
+    document.getElementById("prod-form-stock").value = p.stock ?? 1;
+    document.getElementById("prod-form-image").value = p.image || "";
+    document.getElementById("prod-form-desc").value = p.description || "";
+    document.querySelector("#modal-add-product .modal-title").textContent = "✏️ Editar Item do Catálogo";
     App.openModal("modal-add-product");
   },
 
@@ -139,16 +160,30 @@ const Dashboards = {
     };
 
     let products = store.getProducts();
-    products.unshift(newProd);
+    const editingIndex = this.editingProductId ? products.findIndex(p => p.id === this.editingProductId) : -1;
+    const saved = editingIndex >= 0
+      ? { ...products[editingIndex], type, title, category, price, originalPrice, stock, image, description: desc }
+      : newProd;
+    if (editingIndex >= 0) {
+      products[editingIndex] = saved;
+    } else {
+      products.unshift(saved);
+    }
     store.set(STORAGE_KEYS.PRODUCTS, products);
 
     // Sync to Firestore
     if (typeof FirebaseBridge !== "undefined" && FirebaseBridge.db) {
-      FirebaseBridge.db.collection("products").doc(newProd.id).set(newProd).catch(e => console.warn(e));
+      FirebaseBridge.db.collection("products").doc(saved.id).set(saved).catch(e => console.warn(e));
     }
 
-    store.addAuditLog("PRODUCT_CREATED", user.email || "lojista", `Novo item '${title}' cadastrado na loja.`);
-    store.showToast("Item cadastrado com sucesso no catálogo!", "success");
+    if (editingIndex >= 0) {
+      store.addAuditLog("PRODUCT_UPDATED", user.email || "lojista", `Item '${title}' atualizado na loja.`);
+      store.showToast("Item atualizado com sucesso!", "success");
+    } else {
+      store.addAuditLog("PRODUCT_CREATED", user.email || "lojista", `Novo item '${title}' cadastrado na loja.`);
+      store.showToast("Item cadastrado com sucesso no catálogo!", "success");
+    }
+    this.editingProductId = null;
     App.closeAllModals();
     this.renderSellerDashboard();
   },
