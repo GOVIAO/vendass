@@ -1,0 +1,35 @@
+# Arquivos que o Netlify NAO deve publicar.
+#
+# O netlify.toml usa publish = ".", o que transformaria qualquer arquivo
+# versionado em URL publica. As regras do Firestore e a configuracao de
+# hosting nao podem ficar acessiveis: quem lesse saberia a estrutura
+# exata das regras de acesso do banco.
+
+# Infraestrutura e credenciais
+firebase.json
+vercel.json
+.firebaserc
+firestore.rules
+firestore.indexes.json
+.env
+.env.*
+*.pfx
+*.pem
+*.key
+
+# Servidores e scripts locais
+server.ps1
+test_tcp.ps1
+organizar_anotacoes.py
+testes/
+prompts/
+specs/
+resultados/
+exemplos/
+
+# Documentacao interna
+README.md
+QUICKSTART.md
+AGENTS.md
+.kilo/
+.git/

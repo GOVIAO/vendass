@@ -3,7 +3,56 @@
  * Rich, realistic Brazilian multi-vendor catalog
  */
 
+/**
+ * CATÁLOGO DE CATEGORIAS COM IMAGEM PRÓPRIA
+ *
+ * Cada entrada aponta para um arquivo individual em /assets/categories/.
+ * As imagens NÃO entram junto no repositório: são recortadas do catálogo
+ * original e depositadas nessa pasta pelo pipeline de assets.
+ *
+ * `slug` é a URL pública (/categoria/<slug>) e precisa ser estável: mudar
+ * um slug quebra links já indexados e compartilhados.
+ *
+ * Os 8 `categories` abaixo continuam existindo como eixos de navegação
+ * Antigos, usados pelas pílhas do topo. As 30 de produto vivem nesta lista
+ * e aparecem na grade de cards com imagem.
+ */
+const PRODUCT_CATEGORIES = [
+  { slug: "notebooks-computadores", name: "Notebooks e Computadores", image: "/assets/categories/notebooks-computadores.webp" },
+  { slug: "smartphones", name: "Smartphones", image: "/assets/categories/smartphones.webp" },
+  { slug: "tablets", name: "Tablets", image: "/assets/categories/tablets.webp" },
+  { slug: "fones-ouvido", name: "Fones de Ouvido", image: "/assets/categories/fones-ouvido.webp" },
+  { slug: "smartwatches", name: "Smartwatches", image: "/assets/categories/smartwatches.webp" },
+  { slug: "acessorios-celular", name: "Acessórios de Celular", image: "/assets/categories/acessorios-celular.webp" },
+  { slug: "monitores", name: "Monitores", image: "/assets/categories/monitores.webp" },
+  { slug: "teclados-mouses", name: "Teclados e Mouses", image: "/assets/categories/teclados-mouses.webp" },
+  { slug: "impressoras", name: "Impressoras", image: "/assets/categories/impressoras.webp" },
+  { slug: "games", name: "Games", image: "/assets/categories/games.webp" },
+  { slug: "acessorios-gamer", name: "Acessórios Gamer", image: "/assets/categories/acessorios-gamer.webp" },
+  { slug: "eletrodomesticos", name: "Eletrodomésticos", image: "/assets/categories/eletrodomesticos.webp" },
+  { slug: "cozinha", name: "Cozinha", image: "/assets/categories/cozinha.webp" },
+  { slug: "casa-decoracao", name: "Casa e Decoração", image: "/assets/categories/casa-decoracao.webp" },
+  { slug: "roupas-femininas", name: "Roupas Femininas", image: "/assets/categories/roupas-femininas.webp" },
+  { slug: "roupas-masculinas", name: "Roupas Masculinas", image: "/assets/categories/roupas-masculinas.webp" },
+  { slug: "calcados", name: "Calçados", image: "/assets/categories/calcados.webp" },
+  { slug: "bolsas-acessorios", name: "Bolsas e Acessórios", image: "/assets/categories/bolsas-acessorios.webp" },
+  { slug: "ferramentas", name: "Ferramentas", image: "/assets/categories/ferramentas.webp" },
+  { slug: "automotivo", name: "Automotivo", image: "/assets/categories/automotivo.webp" },
+  { slug: "infantil", name: "Infantil", image: "/assets/categories/infantil.webp" },
+  { slug: "pet", name: "Pet", image: "/assets/categories/pet.webp" },
+  { slug: "beleza-cuidados", name: "Beleza e Cuidados", image: "/assets/categories/beleza-cuidados.webp" },
+  { slug: "saude-bem-estar", name: "Saúde e Bem-estar", image: "/assets/categories/saude-bem-estar.webp" },
+  { slug: "esportes", name: "Esportes", image: "/assets/categories/esportes.webp" },
+  { slug: "livros", name: "Livros", image: "/assets/categories/livros.webp" },
+  { slug: "papelaria", name: "Papelaria", image: "/assets/categories/papelaria.webp" },
+  { slug: "bebes", name: "Bebês", image: "/assets/categories/bebes.webp" },
+  { slug: "alimentos-bebidas", name: "Alimentos e Bebidas", image: "/assets/categories/alimentos-bebidas.webp" },
+  { slug: "produtos-diversos", name: "Produtos Diversos", image: "/assets/categories/produtos-diversos.webp" }
+];
+
 const INITIAL_DATA = {
+  productCategories: PRODUCT_CATEGORIES,
+
   categories: [
     { id: "cat-todos", name: "Todos", icon: "grid", slug: "todos" },
     { id: "cat-tec", name: "Tecnologia & Software", icon: "cpu", slug: "tecnologia" },

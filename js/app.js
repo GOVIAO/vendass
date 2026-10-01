@@ -17,6 +17,7 @@ const App = {
     this.updateNavUser();
     this.renderHomeVitrines();
     this.renderCategoryPills();
+    this.renderProductCategoryGrid();
     this.bindGlobalEvents();
 
     // Init submodules
@@ -182,6 +183,8 @@ const App = {
     // Specific view initializers
     if (viewName === "home") {
       this.renderHomeVitrines();
+    } else if (viewName === "category") {
+      this.renderCategoryView(params.slug || "");
     } else if (viewName === "storefront") {
       this.renderStorefrontView(params.storeId || "store-technova");
     } else if (viewName === "dashboard-seller") {
@@ -338,10 +341,167 @@ const App = {
 
     const cats = store.getCategories();
     container.innerHTML = cats.map(cat => `
-      <button class="cat-pill ${cat.id === this.activeCategory ? 'active' : ''}" onclick="App.filterCategory('${cat.id}')">
-        <span>${cat.name}</span>
+      <button class="cat-pill ${cat.id === this.activeCategory ? 'active' : ''}" onclick="App.filterCategory('${escapeJsArg(cat.id)}')">
+        <span>${escapeHtml(cat.name)}</span>
       </button>
     `).join("");
+  },
+
+  /* ------------------------------------------------------------------------
+     Grade de categorias com imagem própria
+
+     Um card por categoria, com a imagem no caminho canônico
+     /assets/categories/<slug>.webp. O carregamento passa por
+     onImageFallback: enquanto os arquivos não estiverem no lugar, o card
+     mostra um placeholder com o nome em vez de um ícone de imagem quebrada.
+     ------------------------------------------------------------------------ */
+  renderProductCategoryGrid() {
+    const grid = document.getElementById("category-image-grid");
+    if (!grid) return;
+
+    const cats = store.getProductCategories();
+    grid.innerHTML = cats.map(cat => `
+      <a class="category-image-card"
+         href="/categoria/${encodeURIComponent(cat.slug)}"
+         data-category-slug="${escapeJsArg(cat.slug)}"
+         aria-label="${escapeHtml(cat.name)}">
+        <div class="category-image-wrap">
+          <img src="${safeImageUrl(cat.image)}"
+               alt="${escapeHtml(cat.name)}"
+               class="category-image"
+               loading="lazy"
+               decoding="async"
+               onerror="App.onImageFallback(this)">
+          <span class="category-image-fallback" aria-hidden="true">${escapeHtml(cat.name)}</span>
+        </div>
+        <span class="category-image-name">${escapeHtml(cat.name)}</span>
+      </a>
+    `).join("");
+
+    grid.querySelectorAll(".category-image-card").forEach(card => {
+      card.addEventListener("click", e => {
+        // Navegação interna: o href real continua no lugar para copiar,
+        // abrir em nova aba e para o motor de busca, mas a troca de view
+        // acontece sem recarregar a página.
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        this.openCategory(card.dataset.categorySlug);
+      });
+    });
+  },
+
+  // Imagem ausente não pode virar tile quebrado: marca o wrapper para o
+  // CSS revelar o rótulo por baixo.
+  onImageFallback(img) {
+    if (!img) return;
+    img.classList.add("category-image-missing");
+    const wrap = img.parentNode;
+    if (wrap) wrap.classList.add("category-image-empty");
+  },
+
+  openCategory(slug) {
+    const cat = store.findProductCategory(slug);
+    if (!cat) {
+      store.showToast("Categoria não encontrada.", "error");
+      return;
+    }
+    store.addAuditLog("CATEGORY_OPEN", "Visitante", `Abriu a categoria '${cat.name}' [${cat.slug}].`);
+    this.navigate("category", { slug: cat.slug });
+  },
+
+  renderCategoryView(slug) {
+    const cat = store.findProductCategory(slug);
+    const container = document.getElementById("view-category");
+    if (!container) return;
+
+    if (!cat) {
+      const erro = document.getElementById("category-view-missing");
+      const conteudo = document.getElementById("category-view-content");
+      if (erro) erro.style.display = "block";
+      if (conteudo) conteudo.style.display = "none";
+      return;
+    }
+
+    const erro = document.getElementById("category-view-missing");
+    const conteudo = document.getElementById("category-view-content");
+    if (erro) erro.style.display = "none";
+    if (conteudo) conteudo.style.display = "block";
+
+    const titulo = document.getElementById("category-view-title");
+    if (titulo) titulo.textContent = cat.name;
+
+    const crumb = document.getElementById("category-view-slug");
+    if (crumb) crumb.textContent = cat.slug;
+
+    const img = document.getElementById("category-view-image");
+    if (img) {
+      img.classList.remove("category-image-missing");
+      const wrap = img.parentNode;
+      if (wrap) wrap.classList.remove("category-image-empty");
+      img.src = safeImageUrl(cat.image);
+      img.alt = cat.name;
+    }
+
+    // Enquanto as imagens não existirem, a listagem de produtos da categoria
+    // ficaria vazia e pareceria um erro. Mostramos os produtos do eixo
+    // antigo equivalente, para a página nunca aparecer quebrada.
+    const grade = document.getElementById("category-view-grid");
+    if (grade) {
+      const eixo = this.eixoLegadoDe(cat.slug);
+      const todos = store.getProducts();
+      const lista = eixo
+        ? todos.filter(p => p.category === eixo || p.category === this.nomeDoEixo(eixo))
+        : [];
+      grade.innerHTML = lista.length
+        ? lista.map(p => this.renderProductCard(p)).join("")
+        : `<div class="empty-state">
+             <p>Nenhum produto cadastrado nesta categoria ainda.</p>
+             <button class="btn btn-outline btn-sm" onclick="App.navigate('home')">Ver todo o catálogo</button>
+           </div>`;
+    }
+  },
+
+  // Relação entre as 30 categorias de produto e os 8 eixos legados, para
+  // que uma categoria nova ainda mostre conteúdo em vez de vazio.
+  eixoLegadoDe(slug) {
+    const mapa = {
+      "notebooks-computadores": "cat-tec",
+      smartphones: "cat-eletronicos",
+      tablets: "cat-eletronicos",
+      "fones-ouvido": "cat-eletronicos",
+      smartwatches: "cat-eletronicos",
+      "acessorios-celular": "cat-eletronicos",
+      monitores: "cat-tec",
+      "teclados-mouses": "cat-tec",
+      impressoras: "cat-tec",
+      games: "cat-tec",
+      "acessorios-gamer": "cat-tec",
+      eletrodomesticos: "cat-casa",
+      cozinha: "cat-casa",
+      "casa-decoracao": "cat-casa",
+      "roupas-femininas": "cat-moda",
+      "roupas-masculinas": "cat-moda",
+      calcados: "cat-moda",
+      "bolsas-acessorios": "cat-moda",
+      ferramentas: "cat-ferramentas",
+      automotivo: "cat-ferramentas",
+      infantil: "cat-casa",
+      pet: "cat-casa",
+      "beleza-cuidados": "cat-beleza",
+      "saude-bem-estar": "cat-beleza",
+      esportes: "cat-casa",
+      livros: "cat-casa",
+      papelaria: "cat-casa",
+      bebes: "cat-casa",
+      "alimentos-bebidas": "cat-casa",
+      "produtos-diversos": "cat-todos"
+    };
+    return mapa[slug] || null;
+  },
+
+  nomeDoEixo(eixoId) {
+    const c = store.getCategories().find(x => x.id === eixoId);
+    return c ? c.name : "";
   },
 
   filterCategory(catId) {

@@ -3,15 +3,19 @@ $port = 3000
 $ip = [System.Net.IPAddress]::Loopback
 $certPath = Join-Path $PSScriptRoot "localhost.pfx"
 
-# A senha do certificado NAO fica no repositorio. Defina antes de executar:
-#   $env:VS_CERT_PASSWORD = "sua-senha-local"
-# Para gerar um certificado local descartavel:
-#   powershell -Command "New-SelfSignedCertificate -DnsName localhost -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(2)"
-#   powershell -Command "Export-PfxCertificate -Cert Cert:\CurrentUser\My\<thumbprint> -FilePath localhost.pfx -Password (ConvertTo-SecureString -String '<senha>' -AsPlainText -Force)"
+# O certificado e local e descartavel (self-signed, somente localhost) e o .pfx
+# esta no .gitignore, entao a senha nao protege nada versionado. Basta rodar o
+# script: o par de chaves e gerado na primeira execucao. Se VS_CERT_PASSWORD
+# estiver definida, ela tem precedencia (util em ambiente compartilhado).
+# Para forcar a renovacao do certificado: remova localhost.pfx e execute de novo.
 $certPassword = $env:VS_CERT_PASSWORD
 if (-not $certPassword) {
-    Write-Host "ERRO: defina a variavel de ambiente VS_CERT_PASSWORD com a senha do localhost.pfx." -ForegroundColor Red
-    exit 1
+    # Padrao local: o certificado e descartavel (self-signed, so localhost) e o
+    # .pfx esta no .gitignore, entao a senha nao protege nada versionado. O
+    # objetivo e o script rodar sem configuracao manual. Para um ambiente
+    # compartilhado, defina VS_CERT_PASSWORD e ele tem precedencia.
+    $certPassword = "vs-local-dev-2026"
+    Write-Host "VS_CERT_PASSWORD nao definida: usando a senha local padrao." -ForegroundColor DarkYellow
 }
 
 # Sem o .pfx exportado o script abortava no carregamento do certificado.
@@ -54,11 +58,25 @@ $blockedFiles = @(
     "AGENTS.md",
     ".git",
     ".gitignore",
-    "localhost.pfx"
+    "localhost.pfx",
+    # Configuracao de deploy: publicar isso entrega o mapa do que o
+    # servidor esconde e como a arvore de ignores foi montada.
+    ".netlifyignore",
+    ".vercelignore",
+    ".env",
+    ".env.example",
+    "vercel.json",
+    "organizar_anotacoes.py",
+    "README.md",
+    "QUICKSTART.md",
+    "AGENTS.md"
 )
 
-# Extensões bloqueadas
+# Extensões bloqueadas. .json entra aqui para reter configuracoes de
+# deploy/infra (firebase.json, vercel.json); manifest.json faz excecao
+# porque o PWA precisa dele para instalar.
 $blockedExtensions = @(".ps1", ".md", ".json", ".rules", ".rc", ".pfx")
+$allowedJsonFiles = @("manifest.json")
 
 Write-Host "Servidor HTTPS Ativo em: https://localhost:$port/" -ForegroundColor Green
 Write-Host "Certificado: $certPath" -ForegroundColor Cyan
@@ -92,6 +110,9 @@ function Is-BlockedFile($fileName) {
     $lower = $fileName.ToLower()
     foreach ($blocked in $blockedFiles) {
         if ($lower -eq $blocked.ToLower()) { return $true }
+    }
+    foreach ($allowed in $allowedJsonFiles) {
+        if ($lower -eq $allowed.ToLower()) { return $false }
     }
     foreach ($ext in $blockedExtensions) {
         if ($lower.EndsWith($ext)) { return $true }

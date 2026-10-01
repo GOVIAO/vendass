@@ -333,8 +333,8 @@ const Dashboards = {
         <td>${escapeHtml(s.category)}</td>
         <td>
           ${s.verified
-            ? `<span class="badge badge-success">✓ Aprovada & Verificada</span>`
-            : `<span class="badge badge-warning">Aguardando Análise</span>`}
+            ? `<span class="badge badge-success">✓ Verificada${s.approvedBy === "auto-approve" ? " (auto)" : ""}</span>`
+            : `<span class="badge badge-warning">Suspensa</span>`}
         </td>
         <td>
           <button class="btn btn-outline btn-sm" onclick="Dashboards.toggleStoreVerification('${escapeJsArg(s.id)}')">
@@ -349,10 +349,15 @@ const Dashboards = {
     let stores = store.getStores();
     const s = stores.find(st => st.id === storeId);
     if (s) {
-      s.verified = !s.verified;
+      const next = !s.verified;
+      s.verified = next;
+      // Aprovação é automática, mas o registro da suspensão continua
+      // sendo informação de auditoria relevante.
+      s.approvedBy = next ? (s.approvedBy || "admin") : null;
+      s.suspendedAt = next ? null : new Date().toISOString();
       store.set(STORAGE_KEYS.STORES, stores);
-      store.addAuditLog("STORE_MODERATION", "Admin Master", `Status da loja '${s.name}' alterado para: ${s.verified ? "Aprovada" : "Suspensa"}`);
-      store.showToast(`Loja '${s.name}' ${s.verified ? 'Aprovada e Ativada!' : 'Suspensa preventivamente.'}`, s.verified ? "success" : "warning");
+      store.addAuditLog("STORE_MODERATION", "Admin Master", `Status da loja '${s.name}' alterado para: ${next ? "Verificada" : "Suspensa"}`);
+      store.showToast(`Loja '${s.name}' ${next ? 'Verificada e ativa!' : 'Suspensa preventivamente.'}`, next ? "success" : "warning");
       this.renderAdminStores();
     }
   },

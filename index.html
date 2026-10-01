@@ -309,6 +309,19 @@
         </div>
       </section>
 
+      <!-- Grade de Categorias com Imagem Própria -->
+      <section id="section-categorias">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-tagline">Navegue por Categoria</span>
+            <h2 class="section-title">Encontre o que Você Procura</h2>
+          </div>
+        </div>
+        <div class="category-image-grid" id="category-image-grid">
+          <!-- 30 cards com imagem, renderizados por App.renderProductCategoryGrid() -->
+        </div>
+      </section>
+
       <!-- Featured Products Vitrine -->
       <section id="section-produtos">
         <div class="section-header">
@@ -1148,6 +1161,48 @@
           <strong>Nota de Governança:</strong> As políticas e termos da plataforma Vendendo Soluções passam por revisão contínua por assessoria jurídica especializada para garantir pronta adaptação a quaisquer alterações legislativas ou regulatórias supervenientes.
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       VIEW: CATEGORIA (/categoria/<slug>)
+       ========================================================================= -->
+  <section id="view-category" class="view-container" style="display:none;">
+    <div class="container" style="max-width:1100px; margin:2rem auto;">
+
+      <div id="category-view-missing" style="display:none;" class="empty-state">
+        <h2>Categoria não encontrada</h2>
+        <p>O endereço acessado não corresponde a nenhuma categoria do catálogo.</p>
+        <button class="btn btn-primary" onclick="App.navigate('home')">Voltar à página inicial</button>
+      </div>
+
+      <div id="category-view-content">
+        <nav class="breadcrumb" style="margin-bottom:1rem; font-size:0.85rem;">
+          <a href="/categoria/todos" onclick="event.preventDefault(); App.navigate('home')">Início</a>
+          <span> / </span>
+          <a href="/categoria/smartphones" onclick="event.preventDefault(); App.navigate('home')">Categorias</a>
+          <span> / </span>
+          <strong id="category-view-slug"></strong>
+        </nav>
+
+        <div style="display:flex; align-items:center; gap:1.25rem; margin-bottom:2rem; flex-wrap:wrap;">
+          <div class="category-hero-image-wrap">
+            <img id="category-view-image" class="category-image" alt="" onerror="App.onImageFallback(this)">
+            <span class="category-image-fallback" aria-hidden="true"></span>
+          </div>
+          <div>
+            <span class="section-tagline">Categoria</span>
+            <h1 id="category-view-title" style="margin:0.25rem 0 0.5rem;">Categoria</h1>
+            <a class="btn btn-outline btn-sm" href="/categoria/todos" onclick="event.preventDefault(); App.navigate('home')">
+              ← Ver todas as categorias
+            </a>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:1rem; font-size:1.25rem;">Produtos nesta categoria</h2>
+        <div class="grid-products" id="category-view-grid"></div>
+      </div>
+
     </div>
   </section>
 

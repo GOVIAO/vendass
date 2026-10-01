@@ -724,8 +724,11 @@ const Auth = {
       category,
       rating: 5.0,
       reviewCount: 0,
-      // Loja recém-criada precisa passar por moderação humana antes do selo.
-      verified: false,
+      // Auto-aprovação no cadastro, sem fila de moderação. O selo não é
+      // vitalício: o admin ainda pode suspender a loja em dashboards.js.
+      verified: true,
+      approvedAt: new Date().toISOString(),
+      approvedBy: "auto-approve",
       city: "São Paulo",
       state: "SP",
       responseTime: "< 1 hora",
@@ -759,15 +762,19 @@ const Auth = {
 
     store.set(STORAGE_KEYS.CURRENT_USER, newUser);
     store.saveUser(newUser);
-    store.addAuditLog("MERCHANT_REGISTER", email, `Nova loja registrada: '${tradeName}' (CNPJ: ${cnpj}).`);
+    store.addAuditLog(
+      "MERCHANT_REGISTER",
+      email,
+      `Loja auto-aprovada: '${tradeName}' (CNPJ: ${cnpj}).`
+    );
     App.onAuthenticated();
     App.navigate("dashboard-seller");
 
     const sent = await this.sendVerificationEmail(authUser, "Cadastro de lojista");
     store.showToast(
       sent
-        ? "Loja criada! Aguarde a aprovação da moderação para exibir o selo de verificada."
-        : "Loja criada! Confirme seu e-mail para ativar a conta.",
+        ? "Loja criada e aprovada! Seu painel de vendas já está disponível."
+        : "Loja criada e aprovada! Confirme seu e-mail para ativar a conta.",
       sent ? "success" : "warning",
       "Parabéns, Lojista!"
     );

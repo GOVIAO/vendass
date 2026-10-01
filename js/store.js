@@ -157,6 +157,19 @@ class StoreManager {
   getStores() { return this.get(STORAGE_KEYS.STORES) || []; }
   getProducts() { return this.get(STORAGE_KEYS.PRODUCTS) || []; }
   getCategories() { return this.get(STORAGE_KEYS.CATEGORIES) || []; }
+
+  // As 30 categorias de produto vêm da constante em data.js, não do
+  // localStorage. Elas são configuração do catálogo, não dado do usuário:
+  // guardar localmente faria o seed antigo continuar vencendo para quem
+  // já tinha visita anterior, e o card novo jamais apareceria.
+  getProductCategories() {
+    return typeof PRODUCT_CATEGORIES !== "undefined" ? PRODUCT_CATEGORIES : [];
+  }
+
+  findProductCategory(slug) {
+    const alvo = String(slug || "").toLowerCase();
+    return this.getProductCategories().find(c => c.slug === alvo) || null;
+  }
   getCart() { return this.get(STORAGE_KEYS.CART) || []; }
   getFavorites() { return this.get(STORAGE_KEYS.FAVORITES) || { products: [], stores: [] }; }
   getOrders() { return this.get(STORAGE_KEYS.ORDERS) || []; }
