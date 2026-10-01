@@ -6,7 +6,7 @@
 |----------|-----|
 | **Produção (Netlify)** | https://vendass.netlify.app |
 | GitHub Pages | https://GOVIAO.github.io/vendass/ |
-| Local (HTTPS) | https://localhost:3000 |
+
 
 Todos os ambientes usam HTTPS/SSL.
 
