@@ -36,7 +36,10 @@ const FirebaseBridge = {
   init() {
     try {
       if (typeof firebase !== "undefined") {
-        this.app = firebase.initializeApp(firebaseConfig);
+        // Evita dupla inicialização se já existe um app Firebase.
+        this.app = firebase.apps.length
+          ? firebase.apps[0]
+          : firebase.initializeApp(firebaseConfig);
         this.auth = firebase.auth();
         this.db = firebase.firestore();
 
@@ -56,6 +59,47 @@ const FirebaseBridge = {
         this.isOnline = true;
         this.updateCloudStatusBadge(true);
         this.listenAuthState();
+        this.handleRedirectResult();
+
+        // Processa resultado de redirect do Google (caso popup foi bloqueado)
+        this.auth.getRedirectResult().then(result => {
+          if (result && result.user) {
+            const user = result.user;
+            const clientUser = {
+              id: "usr-" + user.uid.substring(0, 8),
+              firebaseUid: user.uid,
+              name: user.displayName || "Usuário Google",
+              email: user.email,
+              photoURL: user.photoURL,
+              role: "client",
+              storeId: null,
+              mfaEnabled: true,
+              lastLogin: new Date().toISOString()
+            };
+            store.set(STORAGE_KEYS.CURRENT_USER, clientUser);
+            store.addAuditLog("LOGIN_GOOGLE_SUCCESS", user.email, "Autenticação via Google (redirect) concluída.");
+            if (this.db) {
+              this.db.collection("users").doc(user.uid).set({
+                name: clientUser.name,
+                email: clientUser.email,
+                role: clientUser.role,
+                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+              }, { merge: true }).catch(e => console.warn(e));
+            }
+            this.trackEvent("login", { method: "Google" });
+            store.showToast(`Autenticado como ${clientUser.name} via Google!`, "success", "Login com Google");
+            if (typeof App !== "undefined") {
+              App.closeAllModals();
+              App.updateNavUser();
+              App.navigate("home");
+            }
+          }
+        }).catch(err => {
+          if (err && err.code && err.code !== "auth/no-auth-event") {
+            console.warn("Google redirect result error:", err.code, err.message);
+          }
+        });
+
         console.log("🔥 Firebase conectado ao projeto: vendedor-de-solu");
         store.addAuditLog("FIREBASE_INIT", "Sistema", "Conexão estabelecida com Firebase Cloud (vendedor-de-solu).");
       } else {
@@ -99,56 +143,130 @@ const FirebaseBridge = {
     });
   },
 
-  // Native Google Sign-In with Popup
+  // Native Google Sign-In with Popup (fallback para Redirect se bloqueado)
   async signInWithGoogle() {
     if (!this.auth) {
-      store.showToast("Firebase Auth em carregamento ou indisponível.", "warning");
+      store.showToast("Firebase Auth não está pronto ainda. Tente novamente em alguns instantes.", "warning");
       return;
     }
 
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope("email");
+    provider.addScope("profile");
+    // Força a tela de seleção de conta Google sempre
+    provider.setCustomParameters({ prompt: "select_account" });
+
     try {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      const result = await this.auth.signInWithPopup(provider);
-      const user = result.user;
+      // No mobile o popup é bloqueado com frequência: o redirect é o
+      // caminho confiável, com o resultado tratado em handleRedirectResult().
+      const result = this._isMobile()
+        ? await this.auth.signInWithRedirect(provider)
+        : await this.auth.signInWithPopup(provider);
 
-      const clientUser = {
-        id: "usr-" + user.uid.substring(0, 8),
-        firebaseUid: user.uid,
-        name: user.displayName || "Usuário Google",
-        email: user.email,
-        photoURL: user.photoURL,
-        role: "client",
-        storeId: null,
-        mfaEnabled: true,
-        lastLogin: new Date().toISOString()
-      };
-
-      store.set(STORAGE_KEYS.CURRENT_USER, clientUser);
-      store.addAuditLog("LOGIN_GOOGLE_SUCCESS", user.email, "Autenticação via Google Sign-In concluída.");
-      
-      // Save profile to Firestore
-      if (this.db) {
-        this.db.collection("users").doc(user.uid).set({
-          name: clientUser.name,
-          email: clientUser.email,
-          role: clientUser.role,
-          lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true }).catch(e => console.warn(e));
-      }
-
-      this.trackEvent("login", { method: "Google" });
-      store.showToast(`Autenticado como ${clientUser.name} via Google!`, "success", "Login com Google");
-      App.closeAllModals();
-      App.updateNavUser();
-      App.navigate("home");
+      if (result && result.user) this._handleGoogleUser(result.user);
     } catch (err) {
-      console.error("Google Sign-In error:", err);
-      if (err.code === "auth/popup-closed-by-user") {
-        store.showToast("Janela de login fechada antes de concluir.", "info");
+      console.warn("Google Sign-In popup error:", err.code, err.message);
+
+      if (err.code === "auth/popup-blocked" || err.code === "auth/popup-closed-by-user") {
+        if (err.code === "auth/popup-blocked") {
+          store.showToast("Popup bloqueado pelo navegador. Redirecionando para o Google...", "info");
+          try {
+            await this.auth.signInWithRedirect(provider);
+            // A página será recarregada; o resultado é tratado em init() via getRedirectResult()
+          } catch (redirectErr) {
+            console.error("Google redirect error:", redirectErr);
+            store.showToast("Não foi possível abrir a tela de login do Google. Verifique se popups estão permitidos.", "error");
+          }
+        } else {
+          store.showToast("Login com Google cancelado.", "info");
+        }
+      } else if (err.code === "auth/cancelled-popup-request") {
+        // Ignora: outro popup já estava aberto
+      } else if (err.code === "auth/network-request-failed") {
+        store.showToast("Erro de conexão. Verifique sua internet e tente novamente.", "error");
+      } else if (err.code === "auth/account-exists-with-different-credential") {
+        store.showToast("Este e-mail já possui conta com outro método de login (ex: e-mail/senha).", "error");
       } else {
-        store.showToast(`Autenticação Google: ${err.message}`, "error");
+        store.showToast(`Erro ao entrar com Google: ${err.message || err.code}`, "error");
       }
     }
+  },
+
+  /* ------------------------------------------------------------------
+     Consolida a sessão após qualquer login bem-sucedido (Google ou
+     e-mail/senha) e grava o perfil.
+     ------------------------------------------------------------------ */
+  _handleGoogleUser(user) {
+    if (!user) return;
+    const email = (user.email || "").toLowerCase();
+
+    // Preserva o perfil já cadastrado. Sem isso, entrar pelo Google
+    // sobrescreveria o papel de lojista do mesmo e-mail por "client".
+    const existing = store.getUsers().find(u => String(u.email || "").toLowerCase() === email);
+
+    const clientUser = {
+      id: existing ? existing.id : user.uid,
+      firebaseUid: user.uid,
+      name: (existing && existing.name)
+        || user.displayName
+        || email.split("@")[0]
+        || "Usuário",
+      email,
+      photoURL: user.photoURL || (existing && existing.photoURL) || null,
+      role: existing && store.isValidRole(existing.role) ? existing.role : "client",
+      storeId: existing ? existing.storeId || null : null,
+      partnerType: existing ? existing.partnerType : undefined,
+      // Reflete a inscrição real no provedor, não um valor fixo.
+      mfaEnabled: user.multiFactor
+        ? user.multiFactor.enrolledFactors.length > 0
+        : false,
+      authProvider: "google",
+      lastLogin: new Date().toISOString()
+    };
+
+    store.set(STORAGE_KEYS.CURRENT_USER, clientUser);
+    store.saveUser(clientUser);
+    store.addAuditLog("LOGIN_GOOGLE_SUCCESS", email, "Autenticação via Google Sign-In concluída.");
+
+    if (this.db) {
+      this.db.collection("users").doc(user.uid).set({
+        name: clientUser.name,
+        email: clientUser.email,
+        role: clientUser.role,
+        lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(e => console.warn("Firestore user sync:", e));
+    }
+
+    this.trackEvent("login", { method: "Google" });
+    store.showToast(`Bem-vindo(a), ${clientUser.name}! Login com Google realizado.`, "success", "Login com Google");
+    if (typeof App !== "undefined") {
+      App.closeAllModals();
+      App.updateNavUser();
+      App.navigate(clientUser.role === "admin" ? "dashboard-admin" : "home");
+    }
+    return clientUser;
+  },
+
+  // Consome o resultado de um fluxo de redirect (usado no mobile e
+  // quando o popup é bloqueado).
+  handleRedirectResult() {
+    if (!this.auth) return;
+    try {
+      this.auth.getRedirectResult()
+        .then(result => {
+          if (result && result.user) this._handleGoogleUser(result.user);
+        })
+        .catch(err => {
+          if (err && err.code && err.code !== "auth/cancelled-popup-request") {
+            console.warn("Google redirect result:", err.code);
+          }
+        });
+    } catch (e) { /* SDK sem suporte a redirect */ }
+  },
+
+  // True em dispositivos móveis, onde o popup costuma ser bloqueado.
+  _isMobile() {
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
   },
 
   // Track event in Google Analytics
