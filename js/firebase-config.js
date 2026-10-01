@@ -89,8 +89,7 @@ const FirebaseBridge = {
             this.trackEvent("login", { method: "Google" });
             store.showToast(`Autenticado como ${clientUser.name} via Google!`, "success", "Login com Google");
             if (typeof App !== "undefined") {
-              App.closeAllModals();
-              App.updateNavUser();
+              App.onAuthenticated();
               App.navigate("home");
             }
           }
@@ -137,8 +136,25 @@ const FirebaseBridge = {
         currentUser.name = firebaseUser.displayName || currentUser.name || "Usuário Google";
         currentUser.firebaseUid = firebaseUser.uid;
         currentUser.photoURL = firebaseUser.photoURL;
+        currentUser.emailVerified = firebaseUser.emailVerified;
         store.set(STORAGE_KEYS.CURRENT_USER, currentUser);
+        if (typeof App !== "undefined") {
+          App.releaseAuthGate();
+          App.updateNavUser();
+        }
+        return;
+      }
+
+      // Sessão revogada no servidor: o cache local não pode sobreviver a isso,
+      // senão uma sessão encerrada em outro dispositivo ainda abriria a
+      // vitrine. Só vale para sessões que nasceram no Firebase — perfis
+      // puramente locais (modo offline) seguem respeitados.
+      const cached = store.getUser();
+      if (cached && cached.firebaseUid && typeof App !== "undefined") {
+        store.logout();
         App.updateNavUser();
+        App.lockAuthGate();
+        store.showToast("Sua sessão foi encerrada. Entre novamente para continuar.", "info", "Sessão encerrada");
       }
     });
   },
@@ -240,8 +256,7 @@ const FirebaseBridge = {
     this.trackEvent("login", { method: "Google" });
     store.showToast(`Bem-vindo(a), ${clientUser.name}! Login com Google realizado.`, "success", "Login com Google");
     if (typeof App !== "undefined") {
-      App.closeAllModals();
-      App.updateNavUser();
+      App.onAuthenticated();
       App.navigate(clientUser.role === "admin" ? "dashboard-admin" : "home");
     }
     return clientUser;

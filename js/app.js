@@ -275,9 +275,10 @@ const App = {
     store.logout();
     store.showToast("Você saiu da sua conta. Até logo!", "success", "Logout");
     this.updateNavUser();
-    this.closeAllModals();
     this.closeDrawer("cart-drawer");
     this.navigate("home");
+    // Sair devolve o portão: a vitrine só reabre para quem entrar.
+    this.lockAuthGate();
   },
 
   toggleUserMenu(e) {
