@@ -171,21 +171,23 @@ class StoreManager {
      ------------------------------------------------------------------------ */
 
   // Papéis válidos. Qualquer valor fora desta lista é rejeitado.
-  VALID_ROLES: ["client", "lojista", "partner", "admin"],
+  // Campo de classe (não propriedade de objeto): vírgula aqui separaria
+  // campos, não métodos.
+  VALID_ROLES = ["client", "lojista", "partner", "admin"];
 
   isValidRole(role) {
     return this.VALID_ROLES.includes(role);
-  },
+  }
 
   isAdmin() {
     const user = this.getUser();
     return !!user && user.role === "admin";
-  },
+  }
 
   hasRole(...roles) {
     const user = this.getUser();
     return !!user && roles.includes(user.role);
-  },
+  }
 
   // Apenas troca o perfil EXIBIDO na interface. NÃO concede permissão:
   // a autorização real é sempre reavaliada no Firestore (firestore.rules).
@@ -209,7 +211,7 @@ class StoreManager {
     this.set(STORAGE_KEYS.CURRENT_USER, user);
     this.addAuditLog("ROLE_SWITCH", user.email || "sistema", `Perfil exibido alterado para ${role.toUpperCase()}`);
     return user;
-  },
+  }
 
   // Deriva a sessão a partir do perfil CADASTRADO.
   //
@@ -244,7 +246,7 @@ class StoreManager {
     this.set(STORAGE_KEYS.CURRENT_USER, user);
     this.addAuditLog("LOGIN_SUCCESS", normalizedEmail, `Login confirmado via ${authProvider} [Papel: ${userRole.toUpperCase()}].`);
     return user;
-  },
+  }
 
   saveUser(userData) {
     const users = this.getUsers();
@@ -256,7 +258,7 @@ class StoreManager {
     }
     this.set(STORAGE_KEYS.USERS, users);
     return userData;
-  },
+  }
 
   logout() {
     const user = this.getUser();
