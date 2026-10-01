@@ -3,7 +3,7 @@
 ## 🚀 Deploy na Vercel
 
 ### Pré-requisitos
-- Conta na [Vercel](https://vercel.com)
+- Conta na https://solucionando.netlify.app/#home
 - Projeto Firebase configurado (vendedor-de-solu)
 
 ### Configuração Rápida
