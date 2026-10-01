@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+package-lock.json
+package.json
+
+# Secrets / local certificates - NUNCA versionar
+localhost.pfx
+*.pfx
+*.pem
+*.key
+.env
+.env.*
+serviceAccount*.json
+
+# Build output
+dist/
+build/
+.netlify/
+.vercel/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log

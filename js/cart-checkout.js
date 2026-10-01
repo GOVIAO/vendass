@@ -173,6 +173,14 @@ const CartCheckout = {
     if (pixBox) pixBox.style.display = method === "pix" ? "block" : "none";
     if (creditBox) creditBox.style.display = method === "credit" ? "block" : "none";
     if (boletoBox) boletoBox.style.display = method === "boleto" ? "block" : "none";
+
+    if (method === "credit") {
+      const nameField = document.getElementById("checkout-card-name");
+      if (nameField && !nameField.value.trim()) {
+        const user = store.getUser();
+        if (user && user.name) nameField.value = user.name;
+      }
+    }
   },
 
   initPaymentStep(total) {

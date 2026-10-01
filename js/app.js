@@ -23,6 +23,7 @@ const App = {
     Auth.init();
     CartCheckout.init();
     PoliciesLGPD.init();
+    if (typeof PaymentMethods !== "undefined") PaymentMethods.init();
 
     // Check hash for direct route
     const hash = window.location.hash.replace("#", "");
@@ -650,6 +651,10 @@ const App = {
     this.closeAllModals();
     const modal = document.getElementById(modalId);
     if (modal) modal.classList.add("active");
+    if (modalId === "modal-payment-methods" && typeof PaymentMethods !== "undefined") {
+      PaymentMethods.renderCards();
+      PaymentMethods.hideAddCardForm();
+    }
   },
 
   closeModal(modalId) {
@@ -847,6 +852,228 @@ const AccessGate = {
     localStorage.setItem("access_gate_dev_bypass", "true");
     store.showToast("Modo desenvolvedor ativado - verificação ignorada.", "warning");
     this.hideGate();
+  }
+};
+
+// Saved Payment Methods (Cartões)
+// Stores only brand + last4 (PCI-DSS: never persist full PAN or CVV)
+const PaymentMethods = {
+  STORAGE_KEY: "vs_payment_methods_v1",
+
+  getCards() {
+    try {
+      return JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  setCards(cards) {
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cards));
+  },
+
+  detectBrand(number) {
+    const digits = (number || "").replace(/\D/g, "");
+    if (/^4/.test(digits)) return "Visa";
+    if (/^5[1-5]/.test(digits) || /^2[2-7]/.test(digits)) return "Mastercard";
+    if (/^3[47]/.test(digits)) return "American Express";
+    if (/^6(?:011|5)/.test(digits)) return "Discover";
+    if (/^3(?:0[0-5]|[68])/.test(digits)) return "Diners Club";
+    if (/^38|^60|^65/.test(digits)) return "Elo";
+    return "Cartão";
+  },
+
+  formatNumber(value) {
+    return value.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
+  },
+
+  formatExpiry(value) {
+    const digits = value.replace(/\D/g, "").slice(0, 4);
+    return digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+  },
+
+  luhnValid(number) {
+    const digits = number.replace(/\D/g, "");
+    if (digits.length < 13 || digits.length > 19) return false;
+    let sum = 0;
+    let double = false;
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let d = parseInt(digits[i], 10);
+      if (double) {
+        d *= 2;
+        if (d > 9) d -= 9;
+      }
+      sum += d;
+      double = !double;
+    }
+    return sum % 10 === 0;
+  },
+
+  brandColor(brand) {
+    const colors = {
+      "Visa": "#1A1F71",
+      "Mastercard": "#EB001B",
+      "American Express": "#006FCF",
+      "Elo": "#FF6F00",
+      "Discover": "#F26E21",
+      "Diners Club": "#0079BE"
+    };
+    return colors[brand] || "#4F46E5";
+  },
+
+  init() {
+    const numberInput = document.getElementById("card-number");
+    if (numberInput && !numberInput.dataset.bound) {
+      numberInput.dataset.bound = "1";
+      numberInput.addEventListener("input", e => {
+        e.target.value = this.formatNumber(e.target.value);
+      });
+    }
+
+    const expiryInput = document.getElementById("card-expiry");
+    if (expiryInput && !expiryInput.dataset.bound) {
+      expiryInput.dataset.bound = "1";
+      expiryInput.addEventListener("input", e => {
+        e.target.value = this.formatExpiry(e.target.value);
+      });
+    }
+
+    const cvvInput = document.getElementById("card-cvv");
+    if (cvvInput && !cvvInput.dataset.bound) {
+      cvvInput.dataset.bound = "1";
+      cvvInput.addEventListener("input", e => {
+        e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4);
+      });
+    }
+  },
+
+  showAddCardForm() {
+    this.init();
+    const form = document.getElementById("add-card-form");
+    if (form) form.style.display = "block";
+    const nameInput = document.getElementById("card-name");
+    if (nameInput) {
+      const user = store.getUser();
+      if (user && user.name) nameInput.value = user.name;
+      nameInput.focus();
+    }
+  },
+
+  hideAddCardForm() {
+    const form = document.getElementById("add-card-form");
+    if (form) form.style.display = "none";
+  },
+
+  addCard(e) {
+    e.preventDefault();
+
+    const name = document.getElementById("card-name").value.trim();
+    const number = document.getElementById("card-number").value.replace(/\D/g, "");
+    const expiry = document.getElementById("card-expiry").value.trim();
+    const cvv = document.getElementById("card-cvv").value.trim();
+    const isDefault = document.getElementById("card-default").checked;
+
+    if (!name) {
+      Auth.showFieldError("card-name", "Nome no cartão é obrigatório");
+      return;
+    }
+    if (!this.luhnValid(number)) {
+      Auth.showFieldError("card-number", "Número de cartão inválido");
+      return;
+    }
+    if (!/^\d{2}\/\d{2}$/.test(expiry)) {
+      Auth.showFieldError("card-expiry", "Use o formato MM/AA");
+      return;
+    }
+    if (!/^\d{3,4}$/.test(cvv)) {
+      Auth.showFieldError("card-cvv", "CVV inválido");
+      return;
+    }
+
+    ["card-name", "card-number", "card-expiry", "card-cvv"].forEach(id => Auth.clearFieldError(id));
+
+    const brand = this.detectBrand(number);
+    const card = {
+      id: "card-" + Date.now(),
+      name,
+      brand,
+      last4: number.slice(-4),
+      expiry,
+      isDefault
+    };
+
+    let cards = this.getCards();
+    if (isDefault) cards.forEach(c => (c.isDefault = false));
+    cards.push(card);
+    this.setCards(cards);
+
+    if (typeof FirebaseBridge !== "undefined" && FirebaseBridge.db) {
+      const user = store.getUser();
+      if (user) {
+        FirebaseBridge.db.collection("users").doc(user.id).collection("cards").doc(card.id)
+          .set({ ...card, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
+          .catch(e => console.warn("Card sync:", e.message));
+      }
+    }
+
+    store.showToast(`Cartão ${brand} final ${card.last4} salvo com sucesso!`, "success", "Cartão cadastrado");
+    store.addAuditLog("PAYMENT_METHOD_ADDED", store.getUser()?.email || "usuario", `Cartão ${brand} final ${card.last4} adicionado.`);
+
+    this.hideAddCardForm();
+    this.renderCards();
+    App.openModal("modal-payment-methods");
+  },
+
+  removeCard(cardId) {
+    let cards = this.getCards().filter(c => c.id !== cardId);
+    if (cards.length && !cards.some(c => c.isDefault)) {
+      cards[0].isDefault = true;
+    }
+    this.setCards(cards);
+    store.showToast("Cartão removido.", "info");
+    store.addAuditLog("PAYMENT_METHOD_REMOVED", store.getUser()?.email || "usuario", `Cartão ${cardId} removido.`);
+    this.renderCards();
+  },
+
+  setDefault(cardId) {
+    let cards = this.getCards();
+    cards.forEach(c => (c.isDefault = c.id === cardId));
+    this.setCards(cards);
+    store.showToast("Cartão padrão atualizado.", "success");
+    this.renderCards();
+  },
+
+  renderCards() {
+    const list = document.getElementById("saved-cards-list");
+    if (!list) return;
+
+    const cards = this.getCards();
+
+    if (cards.length === 0) {
+      list.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:2rem;">Nenhum cartão salvo</p>`;
+      return;
+    }
+
+    list.innerHTML = cards.map(card => `
+      <div style="display:flex; align-items:center; gap:1rem; padding:1rem; background:var(--bg-surface-elevated); border:1px solid var(--border-color); border-radius:var(--radius-md); margin-bottom:0.75rem;">
+        <div style="width:48px; height:32px; border-radius:4px; background:${this.brandColor(card.brand)}; display:flex; align-items:center; justify-content:center; color:white; font-size:0.65rem; font-weight:800; flex-shrink:0;">
+          ${card.brand === "Mastercard" ? "MC" : card.brand.slice(0, 4).toUpperCase()}
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:700; font-size:0.9rem;">
+            ${card.brand} •••• ${card.last4}
+            ${card.isDefault ? '<span class="badge badge-success" style="margin-left:0.5rem;">Padrão</span>' : ''}
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted);">
+            ${card.name} · Validade ${card.expiry}
+          </div>
+        </div>
+        <div style="display:flex; gap:0.35rem; flex-shrink:0;">
+          ${card.isDefault ? '' : `<button class="btn btn-outline btn-sm" onclick="PaymentMethods.setDefault('${card.id}')" title="Tornar padrão">★</button>`}
+          <button class="btn btn-ghost btn-sm" onclick="PaymentMethods.removeCard('${card.id}')" title="Remover" style="color:var(--danger);">🗑</button>
+        </div>
+      </div>
+    `).join("");
   }
 };
 
