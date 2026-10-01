@@ -1,8 +1,8 @@
 # Vendendo Soluções — Plataforma Digital & Marketplace Inclusivo
 
-## 🚀 Deploy na Vercel
+## 🚀 Deploy na neflity
 
-### Pré-requisitos
+### site
 - Conta na https://solucionando.netlify.app/#home
 - Projeto Firebase configurado (vendedor-de-solu)
 
