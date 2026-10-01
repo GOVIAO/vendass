@@ -164,10 +164,17 @@ const FirebaseBridge = {
 
   // Sync order to Firestore
   async saveOrderToFirestore(order) {
-    if (!this.db) return false;
+    if (!this.db || !this.auth || !this.auth.currentUser) return false;
     try {
+      // buyerUid e storeId são o que firestore.rules usa para autorizar a
+      // leitura. Sem o uid autenticado, o pedido seria gravado sem dono e
+      // a regra de create seria negada.
+      const buyerUid = this.auth.currentUser.uid;
       await this.db.collection("orders").doc(order.id).set({
         ...order,
+        buyerUid,
+        storeId: order.storeId || null,
+        items: order.items || order.subOrders || [],
         syncedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
       console.log(`🔥 Pedido ${order.id} sincronizado com Firestore.`);

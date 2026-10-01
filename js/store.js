@@ -3,6 +3,62 @@
  * Reactive State Management with LocalStorage persistence
  */
 
+/**
+ * Escapa texto para inserção segura em HTML.
+ *
+ * Uso obrigatório sempre que um valor vindo do usuário (nome de cadastro,
+ * título de produto, avaliação, endereço, alvo de denúncia) for concatenado
+ * numa string passada a innerHTML. Sem isso, um cadastro com nome
+ * `<img src=x onerror=...>` executa script para todos os visitantes.
+ *
+ * Quando a marcação não for necessária, prefira textContent — sempre mais
+ * seguro que escapar.
+ */
+function escapeHtml(value) {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Valida e normaliza uma URL de imagem remota.
+ *
+ * Restringe a http/https e descarta esquemas executáveis (javascript:, data:)
+ * que poderiam transformar um campo de imagem em vetor de XSS. Também evita
+ * que um lojista aponte o campo para um pixel de rastreamento externo.
+ */
+function safeImageUrl(url) {
+  if (!url) return "";
+  const raw = String(url).trim();
+  try {
+    const parsed = new URL(raw, window.location.origin);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    return escapeHtml(parsed.href);
+  } catch (e) {
+    return "";
+  }
+}
+
+/**
+ * Escapa um valor destined a um handler inline `onclick="fn('...')"`.
+ * Impede que aspas ou parênteses no dado fechem o argumento e injetem JS.
+ */
+function escapeJsArg(value) {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/</g, "\\u003C")
+    .replace(/>/g, "\\u003E")
+    .replace(/&/g, "\\u0026")
+    .replace(/\r?\n/g, "");
+}
+
 const STORAGE_KEYS = {
   STORES: "vs_stores_v1",
   PRODUCTS: "vs_products_v1",
@@ -110,10 +166,33 @@ class StoreManager {
   getLogs() { return this.get(STORAGE_KEYS.LOGS) || []; }
   getReports() { return this.get(STORAGE_KEYS.REPORTS) || []; }
 
-  /* ------------------------------------------------------------------------
+/* ------------------------------------------------------------------------
      User & Roles
      ------------------------------------------------------------------------ */
+
+  // Papéis válidos. Qualquer valor fora desta lista é rejeitado.
+  VALID_ROLES: ["client", "lojista", "partner", "admin"],
+
+  isValidRole(role) {
+    return this.VALID_ROLES.includes(role);
+  },
+
+  isAdmin() {
+    const user = this.getUser();
+    return !!user && user.role === "admin";
+  },
+
+  hasRole(...roles) {
+    const user = this.getUser();
+    return !!user && roles.includes(user.role);
+  },
+
+  // Apenas troca o perfil EXIBIDO na interface. NÃO concede permissão:
+  // a autorização real é sempre reavaliada no Firestore (firestore.rules).
   setUserRole(role) {
+    if (!this.isValidRole(role)) {
+      throw new Error("Papel inválido.");
+    }
     let user = this.getUser() || {};
     user.role = role;
     if (role === "lojista") {
@@ -124,65 +203,47 @@ class StoreManager {
       user.partnerType = "Logística & Tech";
     } else if (role === "admin") {
       user.name = "Administrador Geral do Sistema";
-      user.role = "admin";
     } else {
-      user.name = "Carlos Eduardo Silva";
       user.storeId = null;
-      user.role = "client";
     }
     this.set(STORAGE_KEYS.CURRENT_USER, user);
-    this.addAuditLog("ROLE_SWITCH", user.email || "sistema", `Alternou perfil ativo para ${role.toUpperCase()}`);
+    this.addAuditLog("ROLE_SWITCH", user.email || "sistema", `Perfil exibido alterado para ${role.toUpperCase()}`);
     return user;
-  }
+  },
 
-  loginUser(email, password) {
-    const lockKey = `vs_lock_${email}`;
-    const lockExpiry = localStorage.getItem(lockKey);
-    if (lockExpiry && Date.now() < parseInt(lockExpiry)) {
-      const waitMin = Math.ceil((parseInt(lockExpiry) - Date.now()) / 60000);
-      throw new Error(`Conta bloqueada por segurança. Tente novamente em ${waitMin} minutos.`);
+  // Deriva a sessão a partir do perfil CADASTRADO.
+  //
+  // Segurança: o papel NUNCA é inferido do texto do e-mail. Fazer isso permitiria
+  // que qualquer pessoa se cadastrasse com um e-mail contendo "admin" e recebesse
+  // privilégios administrativos. Papéis saem exclusivamente do registro persistido.
+  loginUser(email, authProvider = "firebase") {
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new Error("E-mail inválido.");
     }
 
-    // Look up previously registered user to preserve their real profile
-    const registered = this.getUsers().find(u => u.email.toLowerCase() === email.toLowerCase());
+    const registered = this.getUsers().find(
+      u => String(u.email || "").toLowerCase() === normalizedEmail
+    );
 
-    let userRole = "client";
-    let name = "Usuário Verificado";
-    let storeId = null;
-
-    if (registered) {
-      userRole = registered.role || "client";
-      name = registered.name;
-      storeId = registered.storeId || null;
-    } else if (email.includes("lojista") || email.includes("technova")) {
-      userRole = "lojista";
-      name = "TechNova Inovações (Lojista)";
-      storeId = "store-technova";
-    } else if (email.includes("admin")) {
-      userRole = "admin";
-      name = "Administrador Master";
-    } else if (email.includes("parceiro") || email.includes("nexus")) {
-      userRole = "partner";
-      name = "Nexus Logística (Parceiro)";
-    }
+    // Sem cadastro correspondente => menor privilégio possível.
+    const userRole = registered && this.isValidRole(registered.role) ? registered.role : "client";
 
     const user = {
-      id: registered ? registered.id : "usr-" + Date.now(),
-      email,
-      name,
+      id: registered ? registered.id : "usr-" + (crypto.randomUUID ? crypto.randomUUID() : Date.now()),
+      email: normalizedEmail,
+      name: registered ? registered.name : normalizedEmail.split("@")[0],
       role: userRole,
-      storeId,
-      mfaEnabled: true,
+      storeId: registered ? registered.storeId || null : null,
+      // Reflete apenas o que o provedor de identidade já confirmou.
+      mfaEnabled: registered ? !!registered.mfaEnabled : false,
+      authProvider,
       lastLogin: new Date().toISOString()
     };
 
     this.set(STORAGE_KEYS.CURRENT_USER, user);
-    this.addAuditLog("LOGIN_SUCCESS", email, `Login seguro bem-sucedido [Perfil: ${userRole.toUpperCase()}].`);
+    this.addAuditLog("LOGIN_SUCCESS", normalizedEmail, `Login confirmado via ${authProvider} [Papel: ${userRole.toUpperCase()}].`);
     return user;
-  }
-
-  getUsers() {
-    return this.get(STORAGE_KEYS.USERS) || [];
   },
 
   saveUser(userData) {
@@ -333,20 +394,42 @@ class StoreManager {
 
     const toast = document.createElement("div");
     toast.className = `toast toast-${type}`;
-    
+
     let icon = "ℹ️";
     if (type === "success") icon = "✅";
     if (type === "error") icon = "⚠️";
     if (type === "warning") icon = "🔔";
 
-    toast.innerHTML = `
-      <div class="toast-icon">${icon}</div>
-      <div class="toast-content">
-        ${title ? `<div class="toast-title">${title}</div>` : ""}
-        <p class="toast-message">${message}</p>
-      </div>
-      <button class="toast-close" onclick="this.parentElement.remove()">✕</button>
-    `;
+    // Montado via DOM e textContent, nunca innerHTML: título e mensagem vêm
+    // de dados do usuário (nome de cadastro, nome de loja, e-mail, alvo de
+    // denúncia) e concatená-los em HTML permitia XSS em toda notificação.
+    const iconEl = document.createElement("div");
+    iconEl.className = "toast-icon";
+    iconEl.textContent = icon;
+
+    const contentEl = document.createElement("div");
+    contentEl.className = "toast-content";
+
+    if (title) {
+      const titleEl = document.createElement("div");
+      titleEl.className = "toast-title";
+      titleEl.textContent = title;
+      contentEl.appendChild(titleEl);
+    }
+
+    const msgEl = document.createElement("p");
+    msgEl.className = "toast-message";
+    msgEl.textContent = message;
+    contentEl.appendChild(msgEl);
+
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "toast-close";
+    closeBtn.textContent = "✕";
+    closeBtn.addEventListener("click", () => toast.remove());
+
+    toast.appendChild(iconEl);
+    toast.appendChild(contentEl);
+    toast.appendChild(closeBtn);
 
     container.appendChild(toast);
     setTimeout(() => {

@@ -2,49 +2,181 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    /* ------------------------------------------------------------------
+       Funções auxiliares
+
+       A autorização NUNCA depende de um papel guardado em localStorage:
+       o cliente é controlado pelo usuário e pode ser adulterado. O papel
+       real vem de custom claims do token do Firebase Auth, que só o
+       backend pode emitir.
+       ------------------------------------------------------------------ */
+
     function isAuthenticated() {
       return request.auth != null;
     }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Stores catalog: Public read, authenticated owners create/update
+    // Custom claim `role`. Ausente => sem privilégio.
+    function userRole() {
+      return isAuthenticated() && request.auth.token.role != null
+        ? request.auth.token.role
+        : 'client';
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && userRole() == 'admin';
+    }
+
+    function isSeller() {
+      return isAuthenticated() && (userRole() == 'lojista' || userRole() == 'admin');
+    }
+
+    function isPartner() {
+      return isAuthenticated() && (userRole() == 'partner' || userRole() == 'admin');
+    }
+
+    /* ------------------------------------------------------------------
+       Validação de campos — impede que um documento malformado ou
+       gigante seja gravado.
+       ------------------------------------------------------------------ */
+
+    function isValidText(value, maxLen) {
+      return value is string && value.size() > 0 && value.size() <= maxLen;
+    }
+
+    // Bloqueia scripts e caracteres de controle em texto livre.
+    function isSafeText(value, maxLen) {
+      return isValidText(value, maxLen)
+        && !value.matches('.*[<>{}\\].*');
+    }
+
+    function isValidEmail(value) {
+      return value is string && value.size() <= 254 && value.matches('.*@.*\\..*');
+    }
+
+    /* ------------------------------------------------------------------
+       Catálogo de lojas — leitura pública, escrita restrita
+       ------------------------------------------------------------------ */
+
     match /stores/{storeId} {
       allow read: if true;
-      allow create: if isAuthenticated() || true;
-      allow update, delete: if isAuthenticated();
+
+      allow create: if (isSeller() || isPartner())
+        && isSafeText(request.resource.data.name, 120);
+
+      // Somente a própria loja (dono via claim `storeId`) ou admin altera.
+      allow update: if isAdmin()
+        || (isAuthenticated() && request.auth.token.storeId == storeId);
+      allow delete: if isAdmin();
     }
 
-    // Products & Services: Public read, store owner write
+    /* ------------------------------------------------------------------
+       Produtos e serviços — leitura pública, escrita pelo dono da loja
+       ------------------------------------------------------------------ */
+
     match /products/{productId} {
       allow read: if true;
-      allow create, update, delete: if isAuthenticated() || true;
+
+      allow create: if (isSeller() || isPartner())
+        && isSafeText(request.resource.data.title, 140);
+
+      allow update: if isAdmin()
+        || (isAuthenticated()
+            && request.resource.data.storeId is string
+            && request.auth.token.storeId == request.resource.data.storeId);
+      allow delete: if isAdmin()
+        || (isAuthenticated()
+            && resource.data.storeId is string
+            && request.auth.token.storeId == resource.data.storeId);
     }
 
-    // Orders: Allow customer creation, read if owner or seller
+    /* ------------------------------------------------------------------
+       Pedidos — contém PII (nome, e-mail, telefone, endereço).
+       Somente o comprador, a loja vendedora ou um admin podem ler.
+       Ninguém pode apagar.
+       ------------------------------------------------------------------ */
+
     match /orders/{orderId} {
-      allow create: if true;
-      allow read: if true;
-      allow update: if isAuthenticated();
+      // O pedido só é criado por usuário autenticado e precisa ter buyerUid
+      // igual ao próprio uid — impede forgery em nome de terceiros.
+      allow create: if isAuthenticated()
+        && request.resource.data.buyerUid == request.auth.uid
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 100;
+
+      allow read: if isAdmin()
+        || (isAuthenticated()
+            && (resource.data.buyerUid == request.auth.uid
+                || (resource.data.storeId is string
+                    && request.auth.token.storeId == resource.data.storeId)));
+
+      // Atualização limitada a campos logísticos; PII do comprador é imutável.
+      allow update: if isAdmin()
+        || (isAuthenticated()
+            && resource.data.buyerUid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['status', 'trackingCode', 'updatedAt']));
+
+      allow delete: if false;
     }
 
-    // Ethical Community Reports (Canal de Denúncias): Public create with protocol
+    /* ------------------------------------------------------------------
+       Canal de denúncias — criação autenticada, leitura só por admin
+       ------------------------------------------------------------------ */
+
     match /reports/{reportId} {
-      allow create: if true;
-      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && isSafeText(request.resource.data.reportedItem, 200)
+        && isSafeText(request.resource.data.reason, 500);
+
+      allow read: if isAdmin();
+      allow update, delete: if isAdmin();
     }
 
-    // User profiles
+    /* ------------------------------------------------------------------
+       Perfis — estritamente privado. Cada usuário só acessa o próprio.
+       ------------------------------------------------------------------ */
+
     match /users/{userId} {
-      allow read, write: if isOwner(userId) || true;
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId)
+        || (isAdmin() && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['role', 'status', 'verifiedAt']));
+      allow delete: if isOwner(userId) || isAdmin();
+
+      // Cartões salvos: apenas bandeira e finais, nunca PAN/CVV.
+      match /cards/{cardId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && isSafeText(request.resource.data.name, 120)
+          && request.resource.data.last4 is string
+          && request.resource.data.last4.size() == 4
+          && !request.resource.data.keys().hasAny(['number', 'cvv', 'pan', 'cvc']);
+        allow delete: if isOwner(userId);
+      }
     }
 
-    // Security & Audit logs
+    /* ------------------------------------------------------------------
+       Logs de auditoria — append-only, leitura restrita a admin
+       ------------------------------------------------------------------ */
+
     match /audit_logs/{logId} {
-      allow create: if true;
-      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && isSafeText(request.resource.data.action, 64);
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    /* ------------------------------------------------------------------
+       Regra padrão: negar tudo que não foi explicitamente liberado acima.
+       ------------------------------------------------------------------ */
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

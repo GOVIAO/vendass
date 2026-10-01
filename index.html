@@ -1762,67 +1762,52 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Access Gate Modal - Verificação de E-mail e Celular -->
-  <div class="modal-overlay" id="modal-access-gate" style="display: flex;">
+  <div class="modal-overlay" id="modal-access-gate" style="display: none;">
     <div class="modal-dialog" style="max-width: 480px; margin: auto;">
       <div class="modal-header" style="text-align: center; border-bottom: none; padding-bottom: 0.5rem;">
-        <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #4F46E5 0%, #06B6D4 100%); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; font-size: 1.75rem;">🔐</div>
-        <h2 style="margin-bottom: 0.25rem;">Acesso Restrito</h2>
-        <p style="color: var(--text-secondary); font-size: 0.9rem;">Verifique seu e-mail e celular para liberar o acesso completo à plataforma.</p>
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #4F46E5 0%, #06B6D4 100%); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; font-size: 1.75rem;">👋</div>
+        <h2 style="margin-bottom: 0.25rem;">Bem-vindo ao Vendendo Soluções</h2>
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">Deixe seu contato para receber ofertas e recomendações personalizadas.</p>
       </div>
       <div class="modal-body" style="padding: 1.5rem 1.25rem;">
-        <!-- Step 1: Email Input -->
-        <div id="gate-step-email">
-          <form id="form-gate-email" onsubmit="AccessGate.sendEmailCode(event)">
-            <div class="form-group">
-              <label class="form-label">Seu melhor e-mail <span class="required">*</span></label>
-              <input type="email" id="gate-email-input" class="form-control" placeholder="seu@email.com" required autocomplete="email">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Celular com DDD <span class="required">*</span></label>
-              <input type="tel" id="gate-phone-input" class="form-control" placeholder="(11) 99999-9999" required autocomplete="tel">
-            </div>
-            <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 0.5rem;">
-              <span id="gate-btn-text">Enviar Códigos de Verificação</span>
-              <span id="gate-btn-loading" style="display: none;">Enviando...</span>
-            </button>
-          </form>
-          <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 1rem;">
-            Ao continuar, você concorda com nossos <a href="javascript:void(0)" onclick="App.navigate('policy-terms')">Termos de Uso</a> e <a href="javascript:void(0)" onclick="App.navigate('policy-lgpd')">Política de Privacidade LGPD</a>.
+        <form id="form-gate-email" onsubmit="AccessGate.saveContact(event)">
+          <div class="form-group">
+            <label class="form-label">Seu melhor e-mail <span class="required">*</span></label>
+            <input type="email" id="gate-email-input" class="form-control" placeholder="seu@email.com" required autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Celular com DDD <span class="required">*</span></label>
+            <input type="tel" id="gate-phone-input" class="form-control" placeholder="(11) 99999-9999" required autocomplete="tel">
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 0.5rem;">
+            <span id="gate-btn-text">Continuar</span>
+            <span id="gate-btn-loading" style="display: none;">Salvando...</span>
+          </button>
+        </form>
+
+        <div style="display:flex; gap:0.75rem; align-items:flex-start; margin-top:1rem; padding:0.85rem; background:var(--bg-surface-elevated); border:1px solid var(--border-color); border-radius:var(--radius-md);">
+          <span style="font-size:1rem; line-height:1.4;">🛡️</span>
+          <p style="font-size:0.78rem; color:var(--text-muted); margin:0; line-height:1.5;">
+            Este formulário é apenas para contato e <strong>não autentica</strong> você.
+            A segurança da conta é feita pelo <strong>Firebase Authentication</strong>,
+            que verifica a posse do e-mail no servidor e nunca armazena senhas ou códigos neste navegador.
           </p>
         </div>
 
-        <!-- Step 2: Code Verification -->
-        <div id="gate-step-code" style="display: none;">
-          <div style="text-align: center; margin-bottom: 1rem;">
-            <p style="font-size: 0.9rem;">Enviamos códigos de 6 dígitos para:</p>
-            <p id="gate-sent-to-email" style="font-weight: 600; color: var(--primary);"></p>
-            <p id="gate-sent-to-phone" style="font-weight: 600; color: var(--primary);"></p>
-          </div>
-          <form id="form-gate-code" onsubmit="AccessGate.verifyCodes(event)">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-              <div class="form-group">
-                <label class="form-label">Código do E-mail</label>
-                <input type="text" id="gate-code-email" class="form-control" maxlength="6" pattern="\d{6}" placeholder="000000" required autocomplete="one-time-code">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Código do SMS</label>
-                <input type="text" id="gate-code-phone" class="form-control" maxlength="6" pattern="\d{6}" placeholder="000000" required autocomplete="one-time-code">
-              </div>
-            </div>
-            <button type="submit" class="btn btn-success btn-lg" style="width: 100%;">
-              Verificar e Liberar Acesso
-            </button>
-          </form>
-          <div style="text-align: center; margin-top: 1rem;">
-            <button class="btn btn-ghost btn-sm" onclick="AccessGate.resendCodes()">
-              🔄 Reenviar códigos (<span id="gate-resend-timer">60</span>s)
-            </button>
-          </div>
+        <div style="display:flex; gap:0.75rem; align-items:flex-start; margin-top:0.75rem; padding:0.85rem; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); border-radius:var(--radius-md);">
+          <span style="font-size:1rem; line-height:1.4;">📱</span>
+          <p style="font-size:0.78rem; color:var(--text-muted); margin:0; line-height:1.5;">
+            Você pode pular esta etapa. A verificação por SMS ou app autenticador só é
+            ativada depois que você criar a conta, em <strong>Minha conta → Segurança</strong>.
+          </p>
         </div>
 
-        <!-- Dev Bypass (hidden by default, visible with Ctrl+Shift+D) -->
-        <div id="gate-dev-bypass" style="display: none; text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
-          <button class="btn btn-outline btn-sm" onclick="AccessGate.devBypass()">Modo Desenvolvedor (Pular Verificação)</button>
+        <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 1rem;">
+          Ao continuar, você concorda com nossos <a href="javascript:void(0)" onclick="App.navigate('policy-terms')">Termos de Uso</a> e <a href="javascript:void(0)" onclick="App.navigate('policy-lgpd')">Política de Privacidade LGPD</a>.
+        </p>
+
+        <div style="text-align:center; margin-top:0.75rem;">
+          <button class="btn btn-ghost btn-sm" onclick="AccessGate.dismiss()">Agora não, continuar navegando</button>
         </div>
       </div>
     </div>

@@ -56,7 +56,7 @@ const CartCheckout = {
       html += `
         <div class="cart-store-group">
           <div class="cart-store-header">
-            <span>🏪 Vendedor: ${storeObj.name}</span>
+            <span>🏪 Vendedor: ${escapeHtml(storeObj.name)}</span>
             <span class="badge badge-primary">Envio Separado</span>
           </div>
       `;
@@ -68,15 +68,15 @@ const CartCheckout = {
 
         html += `
           <div class="cart-item">
-            <img src="${item.image}" alt="${item.title}" class="cart-item-thumb">
+            <img src="${safeImageUrl(item.image)}" alt="${escapeHtml(item.title)}" class="cart-item-thumb" loading="lazy">
             <div class="cart-item-info">
-              <div class="cart-item-title">${item.title}</div>
-              <div class="cart-item-price">${Formatters.currency(item.price)}</div>
+              <div class="cart-item-title">${escapeHtml(item.title)}</div>
+              <div class="cart-item-price">${escapeHtml(Formatters.currency(item.price))}</div>
               <div class="cart-item-controls">
-                <button class="qty-btn" onclick="CartCheckout.changeQty('${item.productId}', ${item.qty - 1})">-</button>
-                <span class="qty-val">${item.qty}</span>
-                <button class="qty-btn" onclick="CartCheckout.changeQty('${item.productId}', ${item.qty + 1})">+</button>
-                <button class="btn btn-ghost btn-sm" style="color:var(--danger); margin-left:auto;" onclick="store.removeFromCart('${item.productId}'); CartCheckout.renderCartDrawer();">
+                <button class="qty-btn" onclick="CartCheckout.changeQty('${escapeJsArg(item.productId)}', ${item.qty - 1})">-</button>
+                <span class="qty-val">${escapeHtml(item.qty)}</span>
+                <button class="qty-btn" onclick="CartCheckout.changeQty('${escapeJsArg(item.productId)}', ${item.qty + 1})">+</button>
+                <button class="btn btn-ghost btn-sm" style="color:var(--danger); margin-left:auto;" onclick="store.removeFromCart('${escapeJsArg(item.productId)}'); CartCheckout.renderCartDrawer();">
                   Remover
                 </button>
               </div>

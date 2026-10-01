@@ -58,19 +58,19 @@ const Dashboards = {
       <tr>
         <td>
           <div style="display:flex; align-items:center; gap:0.75rem;">
-            <img src="${p.image}" style="width:40px; height:40px; border-radius:6px; object-fit:cover;">
+            <img src="${safeImageUrl(p.image)}" alt="" style="width:40px; height:40px; border-radius:6px; object-fit:cover;" loading="lazy">
             <div>
-              <div style="font-weight:600;">${p.title}</div>
+              <div style="font-weight:600;">${escapeHtml(p.title)}</div>
               <span class="badge ${p.type === 'service' ? 'badge-cyan' : 'badge-primary'}">${p.type === 'service' ? 'Serviço' : 'Produto'}</span>
             </div>
           </div>
         </td>
-        <td><strong>${Formatters.currency(p.price)}</strong></td>
-        <td>${p.stock > 0 ? `<span class="badge badge-success">${p.stock} un</span>` : `<span class="badge badge-danger">Esgotado</span>`}</td>
-        <td>${p.rating} ★ (${p.reviewsCount})</td>
+        <td><strong>${escapeHtml(Formatters.currency(p.price))}</strong></td>
+        <td>${p.stock > 0 ? `<span class="badge badge-success">${escapeHtml(p.stock)} un</span>` : `<span class="badge badge-danger">Esgotado</span>`}</td>
+        <td>${escapeHtml(p.rating)} ★ (${escapeHtml(p.reviewsCount)})</td>
         <td>
-          <button class="btn btn-outline btn-sm" onclick="Dashboards.editProduct('${p.id}')">Editar</button>
-          <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="Dashboards.deleteProduct('${p.id}')">Excluir</button>
+          <button class="btn btn-outline btn-sm" onclick="Dashboards.editProduct('${escapeJsArg(p.id)}')">Editar</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="Dashboards.deleteProduct('${escapeJsArg(p.id)}')">Excluir</button>
         </td>
       </tr>
     `).join("");
@@ -204,17 +204,29 @@ const Dashboards = {
     `).join("");
   },
 
+  /* ------------------------------------------------------------------------
+     Credenciais de API de parceiro
+
+     Antes: a chave ficava hardcoded no bundle e "regenerava" com
+     Math.random() no navegador — sem valor de segurança, pois qualquer
+     chave real precisa ser emitida e revogada no servidor.
+
+     Agora o campo é apenas leitura e mostra um placeholder. Chaves de API
+     reais devem ser emitidas pelo backend para o parceiro autenticado e
+     nunca embarcadas no JavaScript do cliente.
+     ---------------------------------------------------------------------- */
   renderApiCredentials() {
     const keyEl = document.getElementById("partner-api-key");
-    if (keyEl) keyEl.value = "vs_live_948a7b9e02c149d8820f12b";
+    if (keyEl) keyEl.value = "vs_live_••••••••••••••••••••••••";
   },
 
   regenerateApiKey() {
-    const newKey = "vs_live_" + Array.from({length: 24}, () => Math.floor(Math.random()*16).toString(16)).join("");
-    const keyEl = document.getElementById("partner-api-key");
-    if (keyEl) keyEl.value = newKey;
-    store.addAuditLog("API_KEY_REGENERATED", "Parceiro", "Nova chave de API REST gerada para integração.");
-    store.showToast("Nova Chave de API gerada com sucesso!", "success");
+    store.showToast(
+      "Emissão de chave desativada no cliente. Solicite uma nova chave pelo backend autenticado.",
+      "warning",
+      "Segurança"
+    );
+    store.addAuditLog("API_KEY_REQUEST_BLOCKED", "Parceiro", "Tentativa de emissão de chave sem backend.");
   },
 
   simulateWebhook() {
@@ -241,19 +253,19 @@ const Dashboards = {
       <tr>
         <td>
           <div style="display:flex; align-items:center; gap:0.5rem;">
-            <img src="${s.logo}" style="width:32px; height:32px; border-radius:6px; object-fit:cover;">
-            <strong>${s.name}</strong>
+            <img src="${safeImageUrl(s.logo)}" alt="" style="width:32px; height:32px; border-radius:6px; object-fit:cover;" loading="lazy">
+            <strong>${escapeHtml(s.name)}</strong>
           </div>
         </td>
-        <td><code>${Formatters.cnpj(s.cnpj)}</code></td>
-        <td>${s.category}</td>
+        <td><code>${escapeHtml(Formatters.cnpj(s.cnpj))}</code></td>
+        <td>${escapeHtml(s.category)}</td>
         <td>
-          ${s.verified 
-            ? `<span class="badge badge-success">✓ Aprovada & Verificada</span>` 
+          ${s.verified
+            ? `<span class="badge badge-success">✓ Aprovada & Verificada</span>`
             : `<span class="badge badge-warning">Aguardando Análise</span>`}
         </td>
         <td>
-          <button class="btn btn-outline btn-sm" onclick="Dashboards.toggleStoreVerification('${s.id}')">
+          <button class="btn btn-outline btn-sm" onclick="Dashboards.toggleStoreVerification('${escapeJsArg(s.id)}')">
             ${s.verified ? "Suspender Loja" : "Aprovar Loja"}
           </button>
         </td>
@@ -278,15 +290,18 @@ const Dashboards = {
     const tbody = document.getElementById("admin-reports-table-body");
     if (!tbody) return;
 
+    // `reportedItem` e `reason` são texto livre enviado por qualquer visitante.
+    // Sem escape, uma denúncia contendo HTML executaria no console do admin —
+    // XSS armazenado contra um alvo privilegiado.
     tbody.innerHTML = reports.map(r => `
       <tr>
-        <td><strong>${r.id}</strong></td>
-        <td>${r.date}</td>
-        <td>${r.reportedItem} (${r.reportedType})</td>
-        <td><span class="badge badge-danger">${r.reason}</span></td>
-        <td><span class="badge badge-warning">${r.status}</span></td>
+        <td><strong>${escapeHtml(r.id)}</strong></td>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.reportedItem)} (${escapeHtml(r.reportedType)})</td>
+        <td><span class="badge badge-danger">${escapeHtml(r.reason)}</span></td>
+        <td><span class="badge badge-warning">${escapeHtml(r.status)}</span></td>
         <td>
-          <button class="btn btn-sm btn-outline" onclick="Dashboards.resolveReport('${r.id}')">Resolver</button>
+          <button class="btn btn-sm btn-outline" onclick="Dashboards.resolveReport('${escapeJsArg(r.id)}')">Resolver</button>
         </td>
       </tr>
     `).join("");
@@ -309,13 +324,15 @@ const Dashboards = {
     const tbody = document.getElementById("admin-logs-table-body");
     if (!tbody) return;
 
+    // `details` concatena valores de usuário (nome de loja, título de produto,
+    // alvo de denúncia), então é um sink de XSS armazenado no console admin.
     tbody.innerHTML = logs.slice(0, 15).map(l => `
       <tr>
-        <td><span style="font-size:0.8rem; color:var(--text-muted);">${l.date}</span></td>
-        <td><code style="font-size:0.75rem; color:var(--secondary);">${l.type}</code></td>
-        <td>${l.user}</td>
-        <td><small style="color:var(--text-muted);">${l.ip}</small></td>
-        <td><small>${l.details}</small></td>
+        <td><span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(l.date)}</span></td>
+        <td><code style="font-size:0.75rem; color:var(--secondary);">${escapeHtml(l.type)}</code></td>
+        <td>${escapeHtml(l.user)}</td>
+        <td><small style="color:var(--text-muted);">${escapeHtml(l.ip)}</small></td>
+        <td><small>${escapeHtml(l.details)}</small></td>
       </tr>
     `).join("");
   }

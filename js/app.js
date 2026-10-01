@@ -62,7 +62,37 @@ const App = {
   /* ------------------------------------------------------------------------
      Navigation & Views
      ------------------------------------------------------------------------ */
+
+  // Papéis exigidos por visão. Bloqueio de UX apenas — a autorização real
+  // continua no Firestore via firestore.rules, que não pode ser contornado
+  // por manipulação do DOM ou do localStorage.
+  ROUTE_ROLES: {
+    "dashboard-admin": ["admin"],
+    "dashboard-seller": ["lojista", "admin"],
+    "dashboard-partner": ["partner", "admin"]
+  },
+
+  canAccess(viewName) {
+    const required = this.ROUTE_ROLES[viewName];
+    if (!required) return true;
+    const user = store.getUser();
+    if (!user) return false;
+    return required.includes(user.role);
+  },
+
   navigate(viewName, params = {}) {
+    if (!this.canAccess(viewName)) {
+      const user = store.getUser();
+      if (!user) {
+        store.showToast("Faça login para acessar esta área.", "warning", "Acesso restrito");
+        this.navigate("home");
+        return;
+      }
+      store.showToast("Seu perfil não tem permissão para esta área.", "error", "Acesso negado");
+      store.addAuditLog("ACCESS_DENIED", user.email || "anônimo", `Tentou acessar ${viewName} sem permissão.`);
+      return;
+    }
+
     this.currentView = viewName;
     window.location.hash = viewName;
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -109,11 +139,15 @@ const App = {
 
     if (userDisplay) {
       if (user) {
+        const safeName = escapeHtml(user.name);
+        const safeInitial = escapeHtml(String(user.name || "?").charAt(0));
+        const safeFirstName = escapeHtml(String(user.name || "").split(" ")[0]);
+        const safeRole = escapeHtml(user.role);
         userDisplay.innerHTML = `
-          <div class="avatar-circle">${user.name.charAt(0)}</div>
+          <div class="avatar-circle">${safeInitial}</div>
           <div style="display:flex; flex-direction:column; line-height:1.1; text-align:left;">
-            <strong style="font-size:0.825rem;">${user.name.split(" ")[0]}</strong>
-            <span style="font-size:0.68rem; color:var(--secondary); text-transform:uppercase; font-weight:700;">${user.role}</span>
+            <strong style="font-size:0.825rem;">${safeFirstName}</strong>
+            <span style="font-size:0.68rem; color:var(--secondary); text-transform:uppercase; font-weight:700;">${safeRole}</span>
           </div>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:2px;">⌄</svg>
         `;
@@ -141,7 +175,7 @@ const App = {
     const statusText = document.getElementById("login-status-text");
     if (statusBar && statusText) {
       if (user) {
-        statusText.innerHTML = `Login confirmado como <strong>${user.name}</strong> (${user.role.toUpperCase()})`;
+        statusText.innerHTML = `Login confirmado como <strong>${escapeHtml(user.name)}</strong> (${escapeHtml(user.role.toUpperCase())})`;
         statusBar.style.display = "flex";
       } else {
         statusBar.style.display = "none";
@@ -286,39 +320,39 @@ const App = {
     const pixPrice = product.price * 0.95; // 5% off on PIX
 
     return `
-      <div class="product-card" id="card-${product.id}">
-        <div class="product-thumb-wrap" onclick="App.openProductModal('${product.id}')">
-          <img src="${product.image}" alt="${product.title}" class="product-thumb" loading="lazy">
-          ${product.originalPrice > product.price 
-            ? `<div class="product-badge-float badge badge-danger">-${Math.round((1 - product.price/product.originalPrice)*100)}%</div>` 
+      <div class="product-card" id="card-${escapeJsArg(product.id)}">
+        <div class="product-thumb-wrap" onclick="App.openProductModal('${escapeJsArg(product.id)}')">
+          <img src="${safeImageUrl(product.image)}" alt="${escapeHtml(product.title)}" class="product-thumb" loading="lazy">
+          ${product.originalPrice > product.price
+            ? `<div class="product-badge-float badge badge-danger">-${Math.round((1 - product.price/product.originalPrice)*100)}%</div>`
             : `<div class="product-badge-float badge badge-primary">${product.type === 'service' ? 'Serviço' : 'Novo'}</div>`}
-          <button class="product-fav-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); App.toggleFavorite('${product.id}')" title="Favoritar">
+          <button class="product-fav-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); App.toggleFavorite('${escapeJsArg(product.id)}')" title="Favoritar">
             ♥
           </button>
         </div>
         <div class="product-body">
-          <div class="product-store-meta" onclick="App.navigate('storefront', { storeId: '${product.storeId}' })" style="cursor:pointer;">
-            <span>🏪 ${s.name}</span>
+          <div class="product-store-meta" onclick="App.navigate('storefront', { storeId: '${escapeJsArg(product.storeId)}' })" style="cursor:pointer;">
+            <span>🏪 ${escapeHtml(s.name)}</span>
             <span class="verified-icon" title="Loja Verificada">✓</span>
           </div>
-          <h3 class="product-title" onclick="App.openProductModal('${product.id}')" title="${product.title}">${product.title}</h3>
+          <h3 class="product-title" onclick="App.openProductModal('${escapeJsArg(product.id)}')" title="${escapeHtml(product.title)}">${escapeHtml(product.title)}</h3>
           <div class="product-rating">
             <span class="rating-stars">★★★★★</span>
-            <span style="font-weight:600;">${product.rating}</span>
-            <span style="color:var(--text-muted);">(${product.reviewsCount})</span>
+            <span style="font-weight:600;">${escapeHtml(product.rating)}</span>
+            <span style="color:var(--text-muted);">(${escapeHtml(product.reviewsCount)})</span>
           </div>
           <div class="product-price-block">
-            ${product.originalPrice > product.price ? `<div class="price-original">${Formatters.currency(product.originalPrice)}</div>` : ''}
+            ${product.originalPrice > product.price ? `<div class="price-original">${escapeHtml(Formatters.currency(product.originalPrice))}</div>` : ''}
             <div class="price-current">
-              <span class="price-value">${Formatters.currency(product.price)}</span>
+              <span class="price-value">${escapeHtml(Formatters.currency(product.price))}</span>
             </div>
-            <div class="price-pix">ou ${Formatters.currency(pixPrice)} à vista no PIX (5% OFF)</div>
+            <div class="price-pix">ou ${escapeHtml(Formatters.currency(pixPrice))} à vista no PIX (5% OFF)</div>
           </div>
           <div class="product-actions">
-            <button class="btn btn-primary btn-sm" onclick="store.addToCart('${product.id}'); CartCheckout.renderCartDrawer();">
+            <button class="btn btn-primary btn-sm" onclick="store.addToCart('${escapeJsArg(product.id)}'); CartCheckout.renderCartDrawer();">
               + Carrinho
             </button>
-            <button class="btn btn-outline btn-sm" onclick="App.openProductModal('${product.id}')">
+            <button class="btn btn-outline btn-sm" onclick="App.openProductModal('${escapeJsArg(product.id)}')">
               Detalhes
             </button>
           </div>
@@ -332,25 +366,25 @@ const App = {
     const isFav = favs.stores.includes(storeObj.id);
 
     return `
-      <div class="store-card" onclick="App.navigate('storefront', { storeId: '${storeObj.id}' })" style="cursor:pointer;">
+      <div class="store-card" onclick="App.navigate('storefront', { storeId: '${escapeJsArg(storeObj.id)}' })" style="cursor:pointer;">
         <div class="store-cover-wrap">
-          <img src="${storeObj.banner}" style="width:100%; height:100%; object-fit:cover; opacity:0.75;">
-          <img src="${storeObj.logo}" alt="${storeObj.name}" class="store-logo-avatar">
+          <img src="${safeImageUrl(storeObj.banner)}" alt="" style="width:100%; height:100%; object-fit:cover; opacity:0.75;" loading="lazy">
+          <img src="${safeImageUrl(storeObj.logo)}" alt="${escapeHtml(storeObj.name)}" class="store-logo-avatar" loading="lazy">
         </div>
         <div class="store-card-body">
           <div class="store-name-row">
-            <div class="store-card-name">${storeObj.name}</div>
+            <div class="store-card-name">${escapeHtml(storeObj.name)}</div>
             <span class="badge badge-success">✓ Verificada</span>
           </div>
           <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.4rem;">
-            📍 ${storeObj.city}, ${storeObj.state} • Responde em ${storeObj.responseTime}
+            📍 ${escapeHtml(storeObj.city)}, ${escapeHtml(storeObj.state)} • Responde em ${escapeHtml(storeObj.responseTime)}
           </div>
-          <p class="store-card-desc">${storeObj.description}</p>
+          <p class="store-card-desc">${escapeHtml(storeObj.description)}</p>
           <div class="store-tags">
-            <span class="badge badge-gray">${storeObj.category}</span>
-            <span class="badge badge-primary">★ ${storeObj.rating} (${storeObj.reviewCount} avaliações)</span>
+            <span class="badge badge-gray">${escapeHtml(storeObj.category)}</span>
+            <span class="badge badge-primary">★ ${escapeHtml(storeObj.rating)} (${escapeHtml(storeObj.reviewCount)} avaliações)</span>
           </div>
-          <button class="btn btn-outline btn-sm" style="margin-top:auto;" onclick="event.stopPropagation(); App.navigate('storefront', { storeId: '${storeObj.id}' })">
+          <button class="btn btn-outline btn-sm" style="margin-top:auto;" onclick="event.stopPropagation(); App.navigate('storefront', { storeId: '${escapeJsArg(storeObj.id)}' })">
             Visitar Espaço da Loja →
           </button>
         </div>
@@ -578,28 +612,30 @@ const App = {
       const products = store.getProducts();
       const stores = store.getStores();
 
-      const matchedProducts = products.filter(p => p.title.toLowerCase().includes(query) || p.description.toLowerCase().includes(query)).slice(0, 4);
-      const matchedStores = stores.filter(s => s.name.toLowerCase().includes(query)).slice(0, 2);
+      const matchedProducts = products.filter(p => String(p.title || "").toLowerCase().includes(query) || String(p.description || "").toLowerCase().includes(query)).slice(0, 4);
+      const matchedStores = stores.filter(s => String(s.name || "").toLowerCase().includes(query)).slice(0, 2);
 
       if (matchedProducts.length === 0 && matchedStores.length === 0) {
-        dropdown.innerHTML = `<div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">Nenhum resultado encontrado para "${query}"</div>`;
+        // A query é ecoada: precisa ser escapada, senão o próprio usuário
+        // que digita o payload executa o script.
+        dropdown.innerHTML = `<div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">Nenhum resultado encontrado para "${escapeHtml(query)}"</div>`;
       } else {
         dropdown.innerHTML = `
           ${matchedProducts.map(p => `
-            <div class="search-result-item" onclick="App.openProductModal('${p.id}'); document.getElementById('search-predictive-dropdown').classList.remove('active');">
-              <img src="${p.image}" class="search-result-thumb">
+            <div class="search-result-item" onclick="App.openProductModal('${escapeJsArg(p.id)}'); document.getElementById('search-predictive-dropdown').classList.remove('active');">
+              <img src="${safeImageUrl(p.image)}" class="search-result-thumb" alt="${escapeHtml(p.title)}" loading="lazy">
               <div class="search-result-info">
-                <div class="search-result-title">${p.title}</div>
-                <div class="search-result-meta">${Formatters.currency(p.price)} • ${p.type === 'service' ? 'Serviço' : 'Produto'}</div>
+                <div class="search-result-title">${escapeHtml(p.title)}</div>
+                <div class="search-result-meta">${escapeHtml(Formatters.currency(p.price))} • ${p.type === 'service' ? 'Serviço' : 'Produto'}</div>
               </div>
             </div>
           `).join("")}
           ${matchedStores.map(s => `
-            <div class="search-result-item" onclick="App.navigate('storefront', { storeId: '${s.id}' }); document.getElementById('search-predictive-dropdown').classList.remove('active');">
-              <img src="${s.logo}" class="search-result-thumb">
+            <div class="search-result-item" onclick="App.navigate('storefront', { storeId: '${escapeJsArg(s.id)}' }); document.getElementById('search-predictive-dropdown').classList.remove('active');">
+              <img src="${safeImageUrl(s.logo)}" class="search-result-thumb" alt="${escapeHtml(s.name)}" loading="lazy">
               <div class="search-result-info">
-                <div class="search-result-title">🏪 Loja: ${s.name}</div>
-                <div class="search-result-meta">${s.category} • Nota ${s.rating} ★</div>
+                <div class="search-result-title">🏪 Loja: ${escapeHtml(s.name)}</div>
+                <div class="search-result-meta">${escapeHtml(s.category)} • Nota ${escapeHtml(s.rating)} ★</div>
               </div>
             </div>
           `).join("")}
@@ -708,150 +744,114 @@ const App = {
   }
 };
 
-// Access Gate - Verificação de E-mail e Celular
+// Access Gate - Coleta de contato (NÃO é mecanismo de autenticação)
+//
+// IMPORTANTE: este componente NÃO faz verificação de e-mail/SMS. Um código OTP
+// validado no navegador é inseguro por definição — não existe parte confiável,
+// o usuário controla a máquina e o localStorage. A verificação real acontece
+// no Firebase Authentication, no servidor, via sessão do usuário.
 const AccessGate = {
-  emailCode: null,
-  phoneCode: null,
-  resendTimer: null,
-  resendSeconds: 60,
-  userEmail: null,
-  userPhone: null,
+  DISMISS_KEY: "access_gate_dismissed_at",
+  DISMISS_TTL_MS: 30 * 24 * 60 * 60 * 1000,
 
   init() {
-    if (localStorage.getItem("access_gate_verified") === "true") {
+    if (this.wasDismissedRecently()) {
       this.hideGate();
       return;
     }
-    this.bindEvents();
     this.showGate();
   },
 
-  bindEvents() {
-    document.addEventListener("keydown", (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === "D") {
-        const bypass = document.getElementById("gate-dev-bypass");
-        if (bypass) bypass.style.display = bypass.style.display === "none" ? "block" : "none";
+  wasDismissedRecently() {
+    try {
+      const at = Number(localStorage.getItem(this.DISMISS_KEY));
+      if (!at) return false;
+      if (Date.now() - at > this.DISMISS_TTL_MS) {
+        localStorage.removeItem(this.DISMISS_KEY);
+        return false;
       }
-    });
+      return true;
+    } catch (e) {
+      return true;
+    }
   },
 
   showGate() {
     const gate = document.getElementById("modal-access-gate");
     if (gate) gate.style.display = "flex";
-    document.body.style.overflow = "hidden";
   },
 
   hideGate() {
     const gate = document.getElementById("modal-access-gate");
     if (gate) gate.style.display = "none";
-    document.body.style.overflow = "";
   },
 
-  sendEmailCode(e) {
+  dismiss() {
+    try {
+      localStorage.setItem(this.DISMISS_KEY, String(Date.now()));
+    } catch (e) { /* modo privado */ }
+    this.hideGate();
+  },
+
+  // Valida apenas o formato — não autentica nada
+  isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email);
+  },
+
+  isValidPhone(phone) {
+    const digits = phone.replace(/\D/g, "");
+    return digits.length >= 10 && digits.length <= 13;
+  },
+
+  saveContact(e) {
     e.preventDefault();
+
     const email = document.getElementById("gate-email-input").value.trim().toLowerCase();
     const phone = document.getElementById("gate-phone-input").value.trim();
+
+    if (!this.isValidEmail(email)) {
+      store.showToast("Informe um e-mail válido.", "warning");
+      return;
+    }
+    if (!this.isValidPhone(phone)) {
+      store.showToast("Informe um celular válido com DDD.", "warning");
+      return;
+    }
+
     const btnText = document.getElementById("gate-btn-text");
     const btnLoading = document.getElementById("gate-btn-loading");
+    if (btnText) btnText.style.display = "none";
+    if (btnLoading) btnLoading.style.display = "inline";
 
-    if (!email.includes("@") || phone.length < 10) {
-      store.showToast("Preencha e-mail e celular válidos.", "warning");
-      return;
+    // Sincroniza com o perfil logado, se houver — nunca cria sessão
+    const user = store.getUser();
+    if (user) {
+      user.email = user.email || email;
+      user.phone = user.phone || phone;
+      store.saveUser(user);
     }
 
-    this.userEmail = email;
-    this.userPhone = phone;
-
-    this.emailCode = Math.floor(100000 + Math.random() * 900000).toString();
-    this.phoneCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-    btnText.style.display = "none";
-    btnLoading.style.display = "inline";
+    // Precisa do uid real do Firebase Auth: as regras do Firestore autorizam
+    // `users/{uid}`, então usar o id local (`usr-<timestamp>`) seria negado.
+    if (typeof FirebaseBridge !== "undefined" && FirebaseBridge.db && user) {
+      const uid = FirebaseBridge.auth && FirebaseBridge.auth.currentUser
+        ? FirebaseBridge.auth.currentUser.uid
+        : null;
+      if (uid) {
+        FirebaseBridge.db.collection("users").doc(uid)
+          .update({ email: user.email, phone: user.phone })
+          .catch(() => { /* offline: mantém apenas local */ });
+      }
+    }
 
     setTimeout(() => {
-      btnText.style.display = "inline";
-      btnLoading.style.display = "none";
-      
-      document.getElementById("gate-step-email").style.display = "none";
-      document.getElementById("gate-step-code").style.display = "block";
-      document.getElementById("gate-sent-to-email").textContent = `E-mail: ${this.maskEmail(email)}`;
-      document.getElementById("gate-sent-to-phone").textContent = `Celular: ${this.maskPhone(phone)}`;
-      
-      store.showToast(`Códigos enviados! Verifique seu e-mail e SMS. (Dev: E-mail=${this.emailCode}, SMS=${this.phoneCode})`, "success");
-      this.startResendTimer();
-    }, 1000);
-  },
+      if (btnText) btnText.style.display = "inline";
+      if (btnLoading) btnLoading.style.display = "none";
 
-  maskEmail(email) {
-    const [local, domain] = email.split("@");
-    return local.charAt(0) + "***@" + domain;
-  },
-
-  maskPhone(phone) {
-    const digits = phone.replace(/\D/g, "");
-    return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-****`;
-  },
-
-  startResendTimer() {
-    this.resendSeconds = 60;
-    const timerEl = document.getElementById("gate-resend-timer");
-    const resendBtn = document.querySelector("#gate-step-code button[onclick*='resend']");
-    
-    if (resendBtn) resendBtn.disabled = true;
-    
-    this.resendTimer = setInterval(() => {
-      this.resendSeconds--;
-      if (timerEl) timerEl.textContent = this.resendSeconds;
-      if (this.resendSeconds <= 0) {
-        clearInterval(this.resendTimer);
-        if (resendBtn) resendBtn.disabled = false;
-        if (timerEl) timerEl.textContent = "60";
-      }
-    }, 1000);
-  },
-
-  resendCodes() {
-    if (this.resendSeconds > 0) return;
-    if (!this.userEmail || !this.userPhone) return;
-    
-    this.emailCode = Math.floor(100000 + Math.random() * 900000).toString();
-    this.phoneCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    store.showToast(`Novos códigos enviados! (Dev: E-mail=${this.emailCode}, SMS=${this.phoneCode})`, "success");
-    this.startResendTimer();
-  },
-
-  verifyCodes(e) {
-    e.preventDefault();
-    const codeEmail = document.getElementById("gate-code-email").value.trim();
-    const codePhone = document.getElementById("gate-code-phone").value.trim();
-
-    if (codeEmail.length !== 6 || codePhone.length !== 6) {
-      store.showToast("Digite os 6 dígitos de ambos os códigos.", "warning");
-      return;
-    }
-
-    if (codeEmail === this.emailCode && codePhone === this.phoneCode) {
-      localStorage.setItem("access_gate_verified", "true");
-      localStorage.setItem("access_gate_email", this.userEmail);
-      localStorage.setItem("access_gate_phone", this.userPhone);
-      localStorage.setItem("access_gate_verified_at", new Date().toISOString());
-      
-      store.addAuditLog("ACCESS_GATE_VERIFIED", this.userEmail, "Verificação de e-mail e celular concluída com sucesso.");
-      store.showToast("Acesso liberado! Bem-vindo à plataforma.", "success");
-      
-      this.hideGate();
-    } else {
-      store.showToast("Códigos incorretos. Tente novamente.", "error");
-      store.addAuditLog("ACCESS_GATE_FAILED", this.userEmail, "Tentativa de verificação com códigos incorretos.");
-    }
-  },
-
-  devBypass() {
-    localStorage.setItem("access_gate_verified", "true");
-    localStorage.setItem("access_gate_dev_bypass", "true");
-    store.showToast("Modo desenvolvedor ativado - verificação ignorada.", "warning");
-    this.hideGate();
+      this.dismiss();
+      store.showToast("Contato salvo. Boas-vindas!", "success");
+      store.addAuditLog("CONTACT_CAPTURED", email, "Contato registrado no formulário de boas-vindas.");
+    }, 600);
   }
 };
 
@@ -1008,11 +1008,14 @@ const PaymentMethods = {
     this.setCards(cards);
 
     if (typeof FirebaseBridge !== "undefined" && FirebaseBridge.db) {
-      const user = store.getUser();
-      if (user) {
-        FirebaseBridge.db.collection("users").doc(user.id).collection("cards").doc(card.id)
+      const authUser = FirebaseBridge.auth && FirebaseBridge.auth.currentUser;
+      // Requer sessão ativa: a regra do Firestore exige isOwner(userId).
+      if (authUser) {
+        FirebaseBridge.db.collection("users").doc(authUser.uid).collection("cards").doc(card.id)
           .set({ ...card, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
           .catch(e => console.warn("Card sync:", e.message));
+      } else {
+        store.showToast("Cartão salvo apenas neste dispositivo. Entre na sua conta para sincronizar.", "warning");
       }
     }
 

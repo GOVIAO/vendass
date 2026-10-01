@@ -2,7 +2,17 @@
 $port = 3000
 $ip = [System.Net.IPAddress]::Loopback
 $certPath = Join-Path $PSScriptRoot "localhost.pfx"
-$certPassword = "devcert"
+
+# A senha do certificado NAO fica no repositorio. Defina antes de executar:
+#   $env:VS_CERT_PASSWORD = "sua-senha-local"
+# Para gerar um certificado local descartavel:
+#   powershell -Command "New-SelfSignedCertificate -DnsName localhost -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(2)"
+#   powershell -Command "Export-PfxCertificate -Cert Cert:\CurrentUser\My\<thumbprint> -FilePath localhost.pfx -Password (ConvertTo-SecureString -String '<senha>' -AsPlainText -Force)"
+$certPassword = $env:VS_CERT_PASSWORD
+if (-not $certPassword) {
+    Write-Host "ERRO: defina a variavel de ambiente VS_CERT_PASSWORD com a senha do localhost.pfx." -ForegroundColor Red
+    exit 1
+}
 
 try {
     $listener = [System.Net.Sockets.TcpListener]::new($ip, $port)
