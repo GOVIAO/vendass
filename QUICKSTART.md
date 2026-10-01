@@ -1,40 +1,64 @@
-# Quick Start - Vendendo Soluções
+# Quick Start — Vendendo Soluções
 
-## 🚀 Local Development (HTTPS)
-```powershell
-# Start HTTPS server (accept self-signed cert in browser)
-powershell -ExecutionPolicy Bypass -File server.ps1
-# Open: https://localhost:3000
-```
+## 🌐 Site
+- **Produção:** https://vendass.netlify.app
+- **GitHub Pages:** https://GOVIAO.github.io/vendass/
+- **Local HTTPS:** https://localhost:3000
 
-## 🌐 Deploy to Vercel (Production SSL Auto)
+---
+
+## 🚀 Deploy Principal — Netlify (via GitHub)
+
+**Pré-requisitos:** conta Netlify, conta GitHub, projeto Firebase `vendedor-de-solu`.
+
+1. **Push para GitHub**
+   ```bash
+   git add .
+   git commit -m "Deploy Netlify"
+   git push
+   ```
+
+2. **Import no Netlify**
+   - https://app.netlify.com → **Add new site → Import an existing project**
+   - Selecione `GOVIAO/vendass` (branch `main`)
+   - **Build command:** vazio | **Publish directory:** `.`
+
+3. **Variáveis de ambiente** (Settings → Environment variables)
+   ```
+   VITE_FIREBASE_API_KEY=AIzaSyAOHlzuTQDKIqgo1FUgU7ARN6tBzEs52_4
+   VITE_FIREBASE_AUTH_DOMAIN=vendedor-de-solu.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=vendedor-de-solu
+   VITE_FIREBASE_STORAGE_BUCKET=vendedor-de-solu.firebasestorage.app
+   VITE_FIREBASE_MESSAGING_SENDER_ID=953875102535
+   VITE_FIREBASE_APP_ID=1:953875102535:web:6b5782e82c4dc207832a62
+   VITE_FIREBASE_MEASUREMENT_ID=G-XT74WR2V3C
+   VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+   ```
+
+4. **Deploy** — URL: https://vendass.netlify.app (HTTPS automático)
+
+5. **Pós-deploy** — Firebase Console → Authentication → Authorized domains → adicione `vendass.netlify.app`
+
+---
+
+## 🔄 Backup — GitHub Pages
 ```bash
-# 1. Push to GitHub
-git init && git add . && git commit -m "Init" && git branch -M main
-git remote add origin https://github.com/USER/vendendo-solucoes.git
-git push -u origin main
-
-# 2. Import at https://vercel.com/new
-#    Framework: Other | Build: (empty) | Output: (empty)
-
-# 3. Add Environment Variables (from .env.example)
-#    VITE_FIREBASE_* | VITE_GA_MEASUREMENT_ID
-
-# 4. Firebase Console → Auth → Authorized domains
-#    Add: your-project.vercel.app
-
-# 5. Deploy → Automatic HTTPS + HSTS
+Copy-Item index.html 404.html
+git add 404.html && git commit -m "SPA fallback"
+git push
 ```
+URL: https://GOVIAO.github.io/vendass/
 
-## ✅ Features Ready
-- **Access Gate**: Email + Phone verification before access
-- **2FA**: Mandatory for admins, optional for others
-- **Firebase**: Auth (Google/Email), Firestore, Analytics
-- **GA4**: Configurable via `VITE_GA_MEASUREMENT_ID`
-- **LGPD**: Cookie consent, data rights, audit logs
-- **Multi-store Checkout**: Split orders by seller
-- **PWA**: Manifest + Service Worker ready
-- **Security**: HSTS, CSP headers, brute-force protection
+---
+
+## 💻 Local (HTTPS)
+```powershell
+powershell -ExecutionPolicy Bypass -File server.ps1
+# https://localhost:3000
+```
 
 ## 🔐 Dev Bypass
-Press `Ctrl+Shift+D` on Access Gate to skip verification locally.
+`Ctrl+Shift+D` no Access Gate pula a verificação.
+
+## ✅ Recursos
+Login persistente (nome real exibido no banner e no header) · 2FA TOTP · Meus Cartões · Checkout multi-lojista · LGPD · Firebase · PWA · HSTS

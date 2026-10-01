@@ -11,6 +11,7 @@ const STORAGE_KEYS = {
   FAVORITES: "vs_favorites_v1",
   ORDERS: "vs_orders_v1",
   CURRENT_USER: "vs_current_user_v1",
+  USERS: "vs_users_v1",
   LOGS: "vs_audit_logs_v1",
   REPORTS: "vs_reports_v1",
   LGPD_CONSENT: "vs_lgpd_consent_v1",
@@ -135,7 +136,6 @@ class StoreManager {
   }
 
   loginUser(email, password) {
-    // Check if locked
     const lockKey = `vs_lock_${email}`;
     const lockExpiry = localStorage.getItem(lockKey);
     if (lockExpiry && Date.now() < parseInt(lockExpiry)) {
@@ -143,12 +143,18 @@ class StoreManager {
       throw new Error(`Conta bloqueada por segurança. Tente novamente em ${waitMin} minutos.`);
     }
 
-    // Demo authentication check
+    // Look up previously registered user to preserve their real profile
+    const registered = this.getUsers().find(u => u.email.toLowerCase() === email.toLowerCase());
+
     let userRole = "client";
     let name = "Usuário Verificado";
     let storeId = null;
 
-    if (email.includes("lojista") || email.includes("technova")) {
+    if (registered) {
+      userRole = registered.role || "client";
+      name = registered.name;
+      storeId = registered.storeId || null;
+    } else if (email.includes("lojista") || email.includes("technova")) {
       userRole = "lojista";
       name = "TechNova Inovações (Lojista)";
       storeId = "store-technova";
@@ -161,7 +167,7 @@ class StoreManager {
     }
 
     const user = {
-      id: "usr-" + Date.now(),
+      id: registered ? registered.id : "usr-" + Date.now(),
       email,
       name,
       role: userRole,
@@ -174,6 +180,22 @@ class StoreManager {
     this.addAuditLog("LOGIN_SUCCESS", email, `Login seguro bem-sucedido [Perfil: ${userRole.toUpperCase()}].`);
     return user;
   }
+
+  getUsers() {
+    return this.get(STORAGE_KEYS.USERS) || [];
+  },
+
+  saveUser(userData) {
+    const users = this.getUsers();
+    const idx = users.findIndex(u => u.email.toLowerCase() === userData.email.toLowerCase());
+    if (idx > -1) {
+      users[idx] = { ...users[idx], ...userData };
+    } else {
+      users.push(userData);
+    }
+    this.set(STORAGE_KEYS.USERS, users);
+    return userData;
+  },
 
   logout() {
     const user = this.getUser();

@@ -245,12 +245,14 @@ const Auth = {
   },
 
   completeLogin(user) {
-    const existingUser = store.getUsers ? store.getUsers().find(u => u.email === user.email) : null;
+    const existingUser = store.getUsers().find(u => u.email.toLowerCase() === user.email.toLowerCase());
     const isAdmin = existingUser && existingUser.role === "admin";
+    const firstName = (user.displayName || (existingUser && existingUser.name) || "").split(" ")[0];
     
     store.loginUser(user.email, "firebase-auth");
+    const session = store.getUser();
     App.closeAllModals();
-    store.showToast(isAdmin ? "Login de administrador autenticado!" : "Login realizado com sucesso!", "success", "Bem-vindo(a)!");
+    store.showToast(`Bem-vindo(a), ${firstName || session.name}! Login confirmado.`, "success", "Autenticado ✓");
     App.updateNavUser();
     App.navigate(isAdmin ? "dashboard-admin" : "home");
   },
@@ -335,6 +337,7 @@ const Auth = {
           };
 
           store.set(STORAGE_KEYS.CURRENT_USER, newUser);
+          store.saveUser(newUser);
           store.addAuditLog("USER_REGISTER", email, "Novo cliente cadastrado com aceite expresso de Termos e LGPD.");
           store.showToast("Conta criada com sucesso! Enviamos a confirmação para seu e-mail.", "success", `Olá, ${name.split(" ")[0]}!`);
           App.closeAllModals();
@@ -361,6 +364,7 @@ const Auth = {
       };
 
       store.set(STORAGE_KEYS.CURRENT_USER, newUser);
+      store.saveUser(newUser);
       store.addAuditLog("USER_REGISTER", email, "Novo cliente cadastrado com aceite expresso de Termos e LGPD.");
       store.showToast("Conta criada com sucesso! (Modo local)", "success", `Olá, ${name.split(" ")[0]}!`);
       App.closeAllModals();
@@ -432,6 +436,7 @@ const Auth = {
     };
 
     store.set(STORAGE_KEYS.CURRENT_USER, newUser);
+    store.saveUser(newUser);
     store.addAuditLog("MERCHANT_REGISTER", email, `Nova loja registrada: '${tradeName}' (CNPJ: ${cnpj}).`);
     store.showToast("Loja criada com sucesso! Seu painel de vendas já está disponível.", "success", "Parabéns, Lojista!");
     App.closeAllModals();
@@ -469,6 +474,7 @@ const Auth = {
     };
 
     store.set(STORAGE_KEYS.CURRENT_USER, newUser);
+    store.saveUser(newUser);
     store.addAuditLog("PARTNER_REGISTER", email, `Novo parceiro credenciado: '${company}' [Tipo: ${type}].`);
     store.showToast("Credenciamento de parceiro concluído! Acesso liberado ao portal de APIs e Logística.", "success");
     App.closeAllModals();

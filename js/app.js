@@ -134,6 +134,18 @@ const App = {
     if (roleSelector && user) {
       roleSelector.value = user.role;
     }
+
+    // Login status banner
+    const statusBar = document.getElementById("login-status-bar");
+    const statusText = document.getElementById("login-status-text");
+    if (statusBar && statusText) {
+      if (user) {
+        statusText.innerHTML = `Login confirmado como <strong>${user.name}</strong> (${user.role.toUpperCase()})`;
+        statusBar.style.display = "flex";
+      } else {
+        statusBar.style.display = "none";
+      }
+    }
   },
 
   handleRoleSwitch(newRole) {
