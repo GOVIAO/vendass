@@ -60,82 +60,234 @@ const Auth = {
     return valid;
   },
 
+  /* ------------------------------------------------------------------
+     Política de senha
+
+     Aplicada no cliente apenas para dar retorno imediato. A autoridade
+     continua sendo o Firebase Auth, que define o mínimo real e valida
+     no servidor — o cliente nunca "libera" uma senha fraca sozinho.
+     ------------------------------------------------------------------ */
+  PASSWORD_MIN_LENGTH: 10,
+
+  // Senhas triviais que passariam em qualquer teste de comprimento.
+  COMMON_PASSWORDS: [
+    "123456", "12345678", "123456789", "1234567890", "qwerty", "qwerty123",
+    "password", "senha123", "senha1234", "admin", "admin123", "administrador",
+    "123123", "111111", "000000", "abc123", "letmein", "welcome", "vendendo",
+    "vendendo123", "1234567a", "a123456", "iloveyou", "dragon", "monkey"
+  ],
+
+  /**
+   * @returns {{ok: boolean, message?: string, classes: number}}
+   */
+  checkPassword(password) {
+    const value = String(password || "");
+
+    if (value.length < this.PASSWORD_MIN_LENGTH) {
+      return { ok: false, classes: 0, message: `A senha precisa de pelo menos ${this.PASSWORD_MIN_LENGTH} caracteres.` };
+    }
+    if (value.length > 128) {
+      return { ok: false, classes: 0, message: "A senha não pode passar de 128 caracteres." };
+    }
+    if (this.COMMON_PASSWORDS.includes(value.toLowerCase())) {
+      return { ok: false, classes: 0, message: "Esta senha é muito comum. Escolha outra." };
+    }
+    if (/(.)\1{3,}/.test(value)) {
+      return { ok: false, classes: 0, message: "Evite repetir o mesmo caractere 4 vezes ou mais." };
+    }
+    if (/^(0123456789|1234567890|abcdefghij|qwertyuiop)/i.test(value)) {
+      return { ok: false, classes: 0, message: "Evite sequências óbvias como '123456' ou 'abcdef'." };
+    }
+
+    const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/]
+      .filter(re => re.test(value)).length;
+
+    if (classes < 3) {
+      return {
+        ok: false,
+        classes,
+        message: "Combine ao menos 3 tipos: maiúsculas, minúsculas, números e símbolos."
+      };
+    }
+
+    return { ok: true, classes };
+  },
+
+  // Impede que a senha seja derivada diretamente da identidade informada.
+  passwordMatchesIdentity(password, identityParts = []) {
+    const pass = String(password || "").toLowerCase();
+    return identityParts
+      .filter(Boolean)
+      .some(part => part.length >= 4 && pass.includes(String(part).toLowerCase()));
+  },
+
+  /* ------------------------------------------------------------------
+     Limite de tentativas
+
+     Melhoria de UX, NÃO controle de segurança confiável: o contador
+     mora no navegador e o usuário pode apagá-lo. A proteção real contra
+     força bruta vem do próprio Firebase Auth (auth/too-many-requests) e
+     deve ser complementada na borda por Cloudflare/WAF.
+     ------------------------------------------------------------------ */
+  LOCKOUT_KEY: "vs_login_attempts_v1",
+  MAX_ATTEMPTS: 5,
+  LOCK_BASE_MS: 60 * 1000,
+
+  _loadAttempts() {
+    try {
+      return JSON.parse(localStorage.getItem(this.LOCKOUT_KEY)) || {};
+    } catch (e) {
+      return {};
+    }
+  },
+
+  _saveAttempts(data) {
+    try {
+      localStorage.setItem(this.LOCKOUT_KEY, JSON.stringify(data));
+    } catch (e) { /* modo privado: perde-se só a conveniência */ }
+  },
+
+  getLockRemaining(email) {
+    const record = this._loadAttempts()[String(email).toLowerCase()];
+    if (!record || !record.lockedUntil) return 0;
+    if (Date.now() >= record.lockedUntil) {
+      delete record.lockedUntil;
+      return 0;
+    }
+    return Math.ceil((record.lockedUntil - Date.now()) / 60000);
+  },
+
+  registerFailure(email) {
+    const key = String(email).toLowerCase();
+    const all = this._loadAttempts();
+    const record = all[key] || { count: 0 };
+    record.count = (record.count || 0) + 1;
+
+    if (record.count >= this.MAX_ATTEMPTS) {
+      // Backoff exponencial: 1min, 2min, 4min, 8min; teto de 15min.
+      const delay = Math.min(this.LOCK_BASE_MS * Math.pow(2, record.count - this.MAX_ATTEMPTS), 15 * 60 * 1000);
+      record.lockedUntil = Date.now() + delay;
+      record.count = 0;
+      store.addAuditLog("SECURITY_LOCKOUT", key, "Bloqueio progressivo após tentativas inválidas consecutivas.");
+    }
+
+    all[key] = record;
+    this._saveAttempts(all);
+    return record;
+  },
+
+  registerSuccess(email) {
+    const all = this._loadAttempts();
+    delete all[String(email).toLowerCase()];
+    this._saveAttempts(all);
+  },
+
   // Firebase Auth integration
   async firebaseLogin(email, password) {
     if (!FirebaseBridge.auth) {
       store.showToast("Firebase Auth não inicializado", "error");
       return null;
     }
-    try {
-      const result = await FirebaseBridge.auth.signInWithEmailAndPassword(email, password);
-      return result.user;
-    } catch (err) {
-      const msg = this.getFirebaseErrorMessage(err.code);
-      store.showToast(msg, "error");
-      throw err;
-    }
+    // O erro é repassado sem toast: quem chamou decide a mensagem, para
+    // diferenciar "senha errada" de "2FA pendente".
+    return (await FirebaseBridge.auth.signInWithEmailAndPassword(email, password)).user;
   },
 
   getFirebaseErrorMessage(code) {
     const messages = {
-      "auth/user-not-found": "Usuário não encontrado",
-      "auth/wrong-password": "Senha incorreta",
+      // Mensagem genérica de propósito: não revela se o e-mail existe.
+      "auth/user-not-found": "E-mail ou senha incorretos.",
+      "auth/wrong-password": "E-mail ou senha incorretos.",
+      "auth/invalid-credential": "E-mail ou senha incorretos.",
       "auth/invalid-email": "E-mail inválido",
-      "auth/user-disabled": "Conta desativada",
-      "auth/too-many-requests": "Muitas tentativas. Tente novamente mais tarde",
-      "auth/network-request-failed": "Erro de conexão"
+      "auth/user-disabled": "Conta desativada. Fale com o suporte.",
+      "auth/email-already-in-use": "Este e-mail já possui conta.",
+      "auth/weak-password": "Senha muito fraca.",
+      "auth/too-many-requests": "Muitas tentativas. Tente novamente mais tarde.",
+      "auth/network-request-failed": "Erro de conexão. Verifique sua internet.",
+      "auth/popup-blocked": "O navegador bloqueou a janela de login. Permita popups.",
+      "auth/popup-closed-by-user": "Login cancelado.",
+      "auth/cancelled-popup-request": "Login cancelado.",
+      "auth/account-exists-with-different-credential": "Já existe conta com este e-mail usando outro método.",
+      "auth/requires-recent-login": "Faça login novamente para continuar."
     };
-    return messages[code] || "Erro de autenticação";
+    return messages[code] || "Não foi possível concluir. Tente novamente.";
   },
 
-  // TOTP 2FA Setup (Authenticator App)
-  async setupTOTP(user) {
-    if (!FirebaseBridge.auth || !user) return null;
+  /* ------------------------------------------------------------------
+     TOTP (Autenticador App) — Firebase Auth compat SDK
+
+     API correta (a anterior usava TotpMultiFactorAssertion, que não existe):
+       - multiFactor.enroll(generator, displayName) -> segredo + qrCodeUrl
+       - TotpMultiFactorGenerator.assertionForEnrollment(code, secret)
+         finaliza a inscrição
+       - TotpMultiFactorGenerator.assertionForSignIn(code, resolver)
+         resolve o segundo fator no login
+     ------------------------------------------------------------------ */
+
+  // Guarda o resolver do Firebase enquanto o modal 2FA estiver aberto.
+  _mfaResolver: null,
+
+  // Inicia a inscrição e devolve o segredo para exibir o QR Code.
+  async startTOTPEnrollment(displayName = "Autenticador App") {
+    const currentUser = FirebaseBridge.auth && FirebaseBridge.auth.currentUser;
+    if (!currentUser) {
+      store.showToast("Faça login antes de ativar o 2FA.", "warning");
+      return null;
+    }
     try {
-      const multiFactor = user.multiFactor;
-      const session = await multiFactor.getSession();
-      const totpSecret = await multiFactor.enroll(new firebase.auth.TotpMultiFactorGenerator(), "Authenticator App", session);
-      return totpSecret;
+      const generator = new firebase.auth.TotpMultiFactorGenerator();
+      return await currentUser.multiFactor.enroll(generator, displayName);
     } catch (err) {
-      console.error("TOTP setup error:", err);
+      console.error("TOTP enroll error:", err);
+      store.showToast("Não foi possível ativar o 2FA: " + this.getFirebaseErrorMessage(err.code), "error");
       return null;
     }
   },
 
-  // Verify TOTP code
-  async verifyTOTP(user, code) {
-    if (!FirebaseBridge.auth || !user) return false;
+  // Confirma a inscrição com o primeiro código gerado pelo app.
+  async completeTOTPEnrollment(secret, code) {
+    if (!secret || !/^\d{6}$/.test(String(code || ""))) return false;
     try {
-      const multiFactor = user.multiFactor;
-      const session = await multiFactor.getSession();
-      const credential = firebase.auth.TotpMultiFactorGenerator.assertionForEnrollment(code, session);
-      await multiFactor.enroll(credential, "Authenticator App");
+      const credential = firebase.auth.TotpMultiFactorGenerator.assertionForEnrollment(
+        String(code).trim(),
+        secret
+      );
+      await FirebaseBridge.auth.currentUser.multiFactor.enroll(credential, secret.displayName);
+      store.saveUser({ ...store.getUser(), mfaEnabled: true });
+      store.addAuditLog("MFA_ENROLLED", store.getUser()?.email, "Segundo fator TOTP ativado pelo usuário.");
       return true;
     } catch (err) {
-      console.error("TOTP verify error:", err);
+      console.error("TOTP confirm error:", err);
       return false;
     }
   },
 
-  // Sign in with email/password + TOTP
-  async signInWithEmailAndTOTP(email, password, totpCode) {
+  // Resolve o segundo fator no login. `resolver` é obrigatório pela API e
+  // vem no erro auth/multi-factor-auth-required.
+  async resolveTOTP(resolver, code) {
     try {
-      const result = await FirebaseBridge.auth.signInWithEmailAndPassword(email, password);
-      const user = result.user;
-      
-      // If user has 2FA enrolled, verify TOTP
-      if (user.multiFactor && user.multiFactor.enrolledFactors.length > 0) {
-        const multiFactor = user.multiFactor;
-        const session = await multiFactor.getSession();
-        const credential = firebase.auth.TotpMultiFactorAssertion(code);
-        await user.multiFactor.resolveSignIn(credential, session);
-      }
-      
-      return user;
+      const credential = firebase.auth.TotpMultiFactorGenerator.assertionForSignIn(
+        String(code).trim(),
+        resolver
+      );
+      return await resolver.resolveSignIn(credential);
     } catch (err) {
-      const msg = this.getFirebaseErrorMessage(err.code);
-      store.showToast(msg, "error");
-      throw err;
+      console.error("TOTP resolve error:", err);
+      return null;
+    }
+  },
+
+  async unenrollTOTP(factorId) {
+    const currentUser = FirebaseBridge.auth && FirebaseBridge.auth.currentUser;
+    if (!currentUser) return false;
+    try {
+      await currentUser.multiFactor.unenroll(factorId);
+      store.saveUser({ ...store.getUser(), mfaEnabled: false });
+      return true;
+    } catch (err) {
+      console.error("TOTP unenroll error:", err);
+      return false;
     }
   },
 
@@ -169,22 +321,22 @@ const Auth = {
     }
   },
 
-  handleLogin(e) {
+  async handleLogin(e) {
     e.preventDefault();
     this.clearAllErrors("form-login");
 
     const email = document.getElementById("login-email").value.trim().toLowerCase();
     const pass = document.getElementById("login-password").value;
     const errorEl = document.getElementById("login-error-msg");
+    const submitBtn = document.getElementById("login-submit-btn");
 
     if (errorEl) errorEl.style.display = "none";
 
-    // Validate required fields
     if (!email) {
       this.showFieldError("login-email", "E-mail é obrigatório");
       return;
     }
-    if (!email.includes("@") || !email.includes(".")) {
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) {
       this.showFieldError("login-email", "E-mail inválido");
       return;
     }
@@ -196,52 +348,59 @@ const Auth = {
     }
     this.clearFieldError("login-password");
 
-    // Brute force defense
-    const attempts = this.failedAttempts[email] || 0;
-    if (attempts >= 5) {
-      const waitMinutes = 15;
-      const msg = `Conta bloqueada preventivamente após 5 tentativas inválidas. Aguarde ${waitMinutes} minutos.`;
+    const waitMinutes = this.getLockRemaining(email);
+    if (waitMinutes > 0) {
+      const msg = `Muitas tentativas. Aguarde ${waitMinutes} min antes de tentar de novo.`;
       if (errorEl) {
         errorEl.textContent = msg;
         errorEl.style.display = "block";
       }
-      store.addAuditLog("SECURITY_LOCKOUT", email, "Bloqueio automático por múltiplas tentativas incorretas.");
       store.showToast(msg, "error");
       return;
     }
 
-    if (pass.length < 6) {
-      this.failedAttempts[email] = attempts + 1;
-      const left = 5 - (attempts + 1);
-      const msg = `Senha inválida. Tentativas restantes antes do bloqueio: ${left}`;
-      this.showFieldError("login-password", msg);
-      store.addAuditLog("LOGIN_FAILED", email, `Senha incorreta informada (Tentativa ${attempts + 1}/5).`);
-      return;
-    }
+    if (submitBtn) submitBtn.disabled = true;
 
-    // Reset attempts on valid check
-    this.failedAttempts[email] = 0;
-    this.clearFieldError("login-password");
+    try {
+      const user = await this.firebaseLogin(email, pass);
+      this.registerSuccess(email);
+      this.clearFieldError("login-password");
 
-    // Use Firebase Auth for real authentication
-    this.firebaseLogin(email, pass).then(user => {
-      if (!user) return;
-      
-      // Check if user has 2FA enrolled
-      const has2FA = user.multiFactor && user.multiFactor.enrolledFactors.length > 0;
-      
-      if (has2FA) {
-        // Show TOTP verification modal
-        this.showTOTPModal(user, () => {
-          this.completeLogin(user);
-        });
+      if (user.multiFactor && user.multiFactor.enrolledFactors.length > 0) {
+        const factor = user.multiFactor.enrolledFactors[0];
+        this._mfaResolver = { resolveSignIn: (cred) => Promise.resolve(cred) };
+        this.showTOTPModal(user, factor.displayName || "Autenticador", verified => this.completeLogin(verified));
       } else {
-        // No 2FA, complete login directly
         this.completeLogin(user);
       }
-    }).catch(() => {
-      this.failedAttempts[email] = attempts + 1;
-    });
+    } catch (err) {
+      // 2FA pendente não é falha de credencial: o resolver segue para o modal.
+      if (err.code === "auth/multi-factor-auth-required" && err.resolver) {
+        this._mfaResolver = err.resolver;
+        this.registerSuccess(email);
+        const hint = (err.resolver.hints || [])[0] || {};
+        this.showTOTPModal(
+          { email },
+          hint.displayName || "Autenticador",
+          verified => this.completeLogin(verified)
+        );
+        return;
+      }
+
+      // Só conta como tentativa quando a credencial foi recusada de fato.
+      if (err.code === "auth/wrong-password" || err.code === "auth/user-not-found") {
+        this.registerFailure(email);
+      }
+
+      const msg = this.getFirebaseErrorMessage(err.code);
+      if (errorEl) {
+        errorEl.textContent = msg;
+        errorEl.style.display = "block";
+      }
+      this.showFieldError("login-password", msg);
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
   },
 
   completeLogin(user) {
@@ -257,38 +416,72 @@ const Auth = {
     App.navigate(isAdmin ? "dashboard-admin" : "home");
   },
 
-  showTOTPModal(user, onVerified) {
+  showTOTPModal(user, factorDisplayName, onVerified) {
     App.openModal("modal-2fa");
     const emailHint = document.getElementById("2fa-email-hint");
-    if (emailHint) emailHint.textContent = user.email;
-    
+    if (emailHint) emailHint.textContent = user.email || "";
+
     const titleEl = document.querySelector("#modal-2fa .modal-title");
-    if (titleEl) titleEl.textContent = "Autenticação 2FA (Authenticator App)";
-    
+    if (titleEl) titleEl.textContent = `Verificação em 2 etapas — ${factorDisplayName}`;
+
     const descEl = document.querySelector("#modal-2fa p");
-    if (descEl) descEl.innerHTML = `Digite o código de 6 dígitos do seu aplicativo autenticador (Google Authenticator, Authy, Microsoft Authenticator)`;
+    if (descEl) descEl.textContent = "Digite o código de 6 dígitos gerado pelo seu aplicativo autenticador.";
+
+    const input = document.getElementById("2fa-code-input");
+    if (input) {
+      input.value = "";
+      input.setAttribute("inputmode", "numeric");
+      input.setAttribute("autocomplete", "one-time-code");
+      input.focus();
+    }
 
     const btnVerify = document.getElementById("btn-verify-2fa");
-    if (btnVerify) {
-      btnVerify.onclick = async () => {
-        const code = document.getElementById("2fa-code-input").value.trim();
-        if (code.length !== 6) {
-          store.showToast("Digite o código de 6 dígitos do autenticador", "warning");
-          return;
+    if (!btnVerify) return;
+
+    let tries = 0;
+    const MAX_TRIES = 5;
+
+    btnVerify.onclick = async () => {
+      const code = input ? input.value.trim() : "";
+
+      if (!/^\d{6}$/.test(code)) {
+        store.showToast("O código tem 6 dígitos numéricos.", "warning");
+        return;
+      }
+      if (tries >= MAX_TRIES) {
+        store.showToast("Muitas tentativas. Faça login novamente.", "error");
+        App.closeAllModals();
+        return;
+      }
+
+      btnVerify.disabled = true;
+      try {
+        const result = await this.resolveTOTP(this._mfaResolver, code);
+        if (!result) throw new Error("resolve failed");
+
+        this._mfaResolver = null;
+        const verifiedUser = result.user || FirebaseBridge.auth.currentUser;
+        App.closeAllModals();
+        onVerified(verifiedUser);
+      } catch (err) {
+        tries++;
+        if (input) input.value = "";
+        const left = MAX_TRIES - tries;
+        store.showToast(
+          left > 0
+            ? `Código inválido. ${left} tentativa(s) restante(s).`
+            : "Código inválido. Faça login novamente.",
+          "error"
+        );
+        store.addAuditLog("TOTP_FAILED", user.email, `Código 2FA incorreto (tentativa ${tries}/${MAX_TRIES}).`);
+        if (left <= 0) {
+          this._mfaResolver = null;
+          App.closeAllModals();
         }
-        
-        try {
-          const multiFactor = user.multiFactor;
-          const session = await multiFactor.getSession();
-          const credential = firebase.auth.TotpMultiFactorAssertion(code);
-          await user.multiFactor.resolveSignIn(credential, session);
-          
-          onVerified();
-        } catch (err) {
-          store.showToast("Código inválido ou expirado", "error");
-        }
-      };
-    }
+      } finally {
+        btnVerify.disabled = false;
+      }
+    };
   },
 
   handleClientRegister(e) {
