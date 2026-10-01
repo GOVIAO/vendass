@@ -490,9 +490,9 @@ const Auth = {
 
     const fields = [
       { id: "reg-name", label: "Nome Completo" },
-      { id: "reg-email", label: "E-mail", validator: v => v.includes("@") && v.includes(".") },
+      { id: "reg-email", label: "E-mail", validator: v => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(v) },
       { id: "reg-cpf", label: "CPF", validator: v => v.replace(/\D/g, "").length === 11 },
-      { id: "reg-password", label: "Senha", validator: v => v.length >= 8 },
+      { id: "reg-password", label: "Senha", validator: v => this.checkPassword(v).ok },
       { id: "reg-terms", label: "Termos", validator: v => document.getElementById("reg-terms").checked }
     ];
 
@@ -507,6 +507,13 @@ const Auth = {
     const phone = document.getElementById("reg-phone").value.trim();
     const cep = document.getElementById("reg-cep").value.trim();
     const password = document.getElementById("reg-password").value;
+
+    // Reforça a política com a identidade escolhida: senha derivada do
+    // próprio e-mail ou nome cai em dicionário imediatamente.
+    if (this.passwordMatchesIdentity(password, [email.split("@")[0], name.split(" ")[0], cpf])) {
+      this.showFieldError("reg-password", "A senha não pode conter seu e-mail, nome ou CPF.");
+      return;
+    }
 
     // Create user in Firebase Auth
     if (FirebaseBridge.auth) {
@@ -525,7 +532,8 @@ const Auth = {
             cep,
             role: "client",
             storeId: null,
-            mfaEnabled: true,
+            // 2FA só vale se foi realmente inscrito pelo usuário.
+            mfaEnabled: false,
             registeredAt: new Date().toISOString()
           };
 
@@ -552,7 +560,7 @@ const Auth = {
         cep,
         role: "client",
         storeId: null,
-        mfaEnabled: true,
+        mfaEnabled: false,
         registeredAt: new Date().toISOString()
       };
 
@@ -566,7 +574,7 @@ const Auth = {
     }
   },
 
-  handleMerchantRegister(e) {
+  async handleMerchantRegister(e) {
     e.preventDefault();
     this.clearAllErrors("form-register-merchant");
 
@@ -574,7 +582,10 @@ const Auth = {
       { id: "mreg-legal-name", label: "Razão Social" },
       { id: "mreg-trade-name", label: "Nome Fantasia" },
       { id: "mreg-cnpj", label: "CNPJ", validator: v => v.replace(/\D/g, "").length === 14 },
-      { id: "mreg-email", label: "E-mail", validator: v => v.includes("@") && v.includes(".") },
+      { id: "mreg-email", label: "E-mail", validator: v => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(v) },
+      { id: "mreg-password", label: "Senha", validator: v => this.checkPassword(v).ok },
+      { id: "mreg-phone", label: "Celular" },
+      { id: "mreg-pix", label: "Chave PIX" },
       { id: "mreg-category", label: "Categoria" },
       { id: "mreg-terms", label: "Termos", validator: v => document.getElementById("mreg-terms").checked }
     ];
@@ -589,18 +600,46 @@ const Auth = {
     const cnpj = document.getElementById("mreg-cnpj").value.trim();
     const email = document.getElementById("mreg-email").value.trim().toLowerCase();
     const category = document.getElementById("mreg-category").value;
+    const password = document.getElementById("mreg-password").value;
+    const phone = document.getElementById("mreg-phone").value.trim();
+    const pixKey = document.getElementById("mreg-pix").value.trim();
+
+    if (this.passwordMatchesIdentity(password, [email.split("@")[0], tradeName, cnpj])) {
+      this.showFieldError("mreg-password", "A senha não pode conter seu e-mail, loja ou CNPJ.");
+      return;
+    }
+
+    // Sem credencial real no Firebase, o papel de lojista existiria apenas
+    // no localStorage — qualquer um se auto-promoveria e a senha nem
+    // existiria. Criamos a conta antes de liberar o painel.
+    if (!FirebaseBridge.auth) {
+      store.showToast("Serviço de autenticação indisponível. Tente novamente.", "error");
+      return;
+    }
+
+    let authUser;
+    try {
+      const credential = await FirebaseBridge.auth.createUserWithEmailAndPassword(email, password);
+      authUser = credential.user;
+      await authUser.updateProfile({ displayName: tradeName });
+    } catch (err) {
+      store.showToast(this.getFirebaseErrorMessage(err.code), "error");
+      return;
+    }
 
     // Create store
     const storeId = "store-" + tradeName.toLowerCase().replace(/[^a-z0-9]/g, "-") + "-" + Math.floor(Math.random()*100);
     const newStore = {
       id: storeId,
+      ownerUid: authUser.uid,
       name: tradeName,
       legalName,
       cnpj,
       category,
       rating: 5.0,
       reviewCount: 0,
-      verified: true,
+      // Loja recém-criada precisa passar por moderação humana antes do selo.
+      verified: false,
       city: "São Paulo",
       state: "SP",
       responseTime: "< 1 hora",
@@ -619,32 +658,39 @@ const Auth = {
     }
 
     const newUser = {
-      id: "usr-" + Date.now(),
+      id: authUser.uid,
+      firebaseUid: authUser.uid,
       name: tradeName,
       email,
+      phone,
+      pixKey,
       role: "lojista",
       storeId: storeId,
-      mfaEnabled: true,
+      // 2FA não se ativa por cadastrar: reflete inscrição real.
+      mfaEnabled: false,
       registeredAt: new Date().toISOString()
     };
 
     store.set(STORAGE_KEYS.CURRENT_USER, newUser);
     store.saveUser(newUser);
     store.addAuditLog("MERCHANT_REGISTER", email, `Nova loja registrada: '${tradeName}' (CNPJ: ${cnpj}).`);
-    store.showToast("Loja criada com sucesso! Seu painel de vendas já está disponível.", "success", "Parabéns, Lojista!");
+    store.showToast("Loja criada! Aguarde a aprovação da moderação para exibir o selo de verificada.", "success", "Parabéns, Lojista!");
     App.closeAllModals();
     App.updateNavUser();
     App.navigate("dashboard-seller");
   },
 
-  handlePartnerRegister(e) {
+  async handlePartnerRegister(e) {
     e.preventDefault();
     this.clearAllErrors("form-register-partner");
 
     const fields = [
       { id: "preg-company", label: "Empresa" },
       { id: "preg-type", label: "Tipo de Parceria" },
-      { id: "preg-email", label: "E-mail", validator: v => v.includes("@") && v.includes(".") }
+      { id: "preg-email", label: "E-mail", validator: v => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(v) },
+      { id: "preg-password", label: "Senha", validator: v => this.checkPassword(v).ok },
+      { id: "preg-phone", label: "Celular" },
+      { id: "preg-terms", label: "Termos", validator: v => document.getElementById("preg-terms").checked }
     ];
 
     if (!this.validateRequired(fields)) {
@@ -655,14 +701,40 @@ const Auth = {
     const company = document.getElementById("preg-company").value.trim();
     const type = document.getElementById("preg-type").value;
     const email = document.getElementById("preg-email").value.trim().toLowerCase();
+    const password = document.getElementById("preg-password").value;
+    const phone = document.getElementById("preg-phone").value.trim();
+
+    if (this.passwordMatchesIdentity(password, [email.split("@")[0], company])) {
+      this.showFieldError("preg-password", "A senha não pode conter seu e-mail ou empresa.");
+      return;
+    }
+
+    // Mesma razão do lojista: sem credencial real no servidor, o papel de
+    // parceiro existiria somente no localStorage.
+    if (!FirebaseBridge.auth) {
+      store.showToast("Serviço de autenticação indisponível. Tente novamente.", "error");
+      return;
+    }
+
+    let authUser;
+    try {
+      const credential = await FirebaseBridge.auth.createUserWithEmailAndPassword(email, password);
+      authUser = credential.user;
+      await authUser.updateProfile({ displayName: company });
+    } catch (err) {
+      store.showToast(this.getFirebaseErrorMessage(err.code), "error");
+      return;
+    }
 
     const newUser = {
-      id: "usr-" + Date.now(),
+      id: authUser.uid,
+      firebaseUid: authUser.uid,
       name: company,
       email,
+      phone,
       role: "partner",
       partnerType: type,
-      mfaEnabled: true,
+      mfaEnabled: false,
       registeredAt: new Date().toISOString()
     };
 
@@ -675,13 +747,81 @@ const Auth = {
     App.navigate("dashboard-partner");
   },
 
-  // Password Recovery Flow
-  recoverPassword(email) {
-    if (!email || !email.includes("@")) {
-      store.showToast("Informe um e-mail válido para redefinição.", "warning");
+  /* ------------------------------------------------------------------
+     Recuperação de senha
+
+     Antes isto era um no-op: exibia um toast dizendo que o link havia
+     sido enviado, sem enviar nada. Agora delega ao Firebase Auth, que
+     gera um e-mail real com link de uso único.
+     ------------------------------------------------------------------ */
+  async recoverPassword(email) {
+    const target = String(email || "").trim().toLowerCase();
+
+    if (!target) {
+      store.showToast("Informe o e-mail da sua conta.", "warning");
       return;
     }
-    store.addAuditLog("PASSWORD_RECOVERY_REQUEST", email, "Solicitação de token seguro para redefinição de senha.");
-    store.showToast(`Link de recuperação temporário enviado para ${email}. Verifique sua caixa de entrada.`, "success", "Recuperação de Senha");
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(target)) {
+      store.showToast("E-mail inválido.", "warning");
+      return;
+    }
+    if (!FirebaseBridge.auth) {
+      store.showToast("Serviço de autenticação indisponível. Tente novamente.", "error");
+      return;
+    }
+
+    // Mesma resposta para e-mail existente e inexistente: responder
+    // diferente permitiria enumerar quais contas existem.
+    const genericMsg = "Se este e-mail tiver conta, você receberá as instruções de redefinição em instantes.";
+
+    try {
+      await FirebaseBridge.auth.sendPasswordResetEmail(target);
+      store.addAuditLog("PASSWORD_RECOVERY_REQUEST", target, "E-mail de redefinição de senha solicitado.");
+      store.showToast(genericMsg, "success", "Recuperação de Senha");
+    } catch (err) {
+      if (err.code === "auth/user-not-found" || err.code === "auth/invalid-email") {
+        store.addAuditLog("PASSWORD_RECOVERY_UNKNOWN_EMAIL", target, "Redefinição solicitada para e-mail sem conta.");
+        store.showToast(genericMsg, "success", "Recuperação de Senha");
+      } else {
+        store.showToast(this.getFirebaseErrorMessage(err.code), "error");
+      }
+    }
+  },
+
+  /* ------------------------------------------------------------------
+     Troca de senha do usuário autenticado
+     ------------------------------------------------------------------ */
+  async changePassword(currentPassword, newPassword) {
+    const user = FirebaseBridge.auth && FirebaseBridge.auth.currentUser;
+    if (!user) {
+      store.showToast("Faça login para alterar sua senha.", "warning");
+      return false;
+    }
+
+    const check = this.checkPassword(newPassword);
+    if (!check.ok) {
+      store.showToast(check.message, "warning");
+      return false;
+    }
+    if (this.passwordMatchesIdentity(newPassword, [user.email])) {
+      store.showToast("A nova senha não pode conter seu e-mail.", "warning");
+      return false;
+    }
+
+    try {
+      await user.reauthenticateWithCredential(
+        firebase.auth.EmailAuthProvider.credential(user.email, currentPassword)
+      );
+      await user.updatePassword(newPassword);
+      store.addAuditLog("PASSWORD_CHANGED", user.email, "Senha alterada pelo próprio usuário.");
+      store.showToast("Senha alterada com sucesso.", "success");
+      return true;
+    } catch (err) {
+      store.showToast(
+        err.code === "auth/wrong-password" ? "Senha atual incorreta." : this.getFirebaseErrorMessage(err.code),
+        "error"
+      );
+      return false;
+    }
   }
 };
