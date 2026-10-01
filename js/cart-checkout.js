@@ -146,8 +146,8 @@ const CartCheckout = {
     if (summaryList) {
       summaryList.innerHTML = cart.map(item => `
         <div style="display:flex; justify-content:space-between; margin-bottom:0.6rem; font-size:0.85rem;">
-          <span style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.qty}x ${item.title}</span>
-          <strong>${Formatters.currency(item.price * item.qty)}</strong>
+          <span style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.qty)}x ${escapeHtml(item.title)}</span>
+          <strong>${escapeHtml(Formatters.currency(item.price * item.qty))}</strong>
         </div>
       `).join("");
     }
@@ -308,9 +308,9 @@ const CartCheckout = {
     if (subOrdersList) {
       subOrdersList.innerHTML = order.subOrders.map(sub => `
         <div style="background:var(--bg-surface-elevated); padding:0.75rem 1rem; border-radius:var(--radius-md); margin-bottom:0.5rem; border:1px solid var(--border-color);">
-          <div style="font-weight:700; font-size:0.875rem;">🏪 ${sub.storeName} (Sub-pedido ${sub.subOrderId})</div>
+          <div style="font-weight:700; font-size:0.875rem;">&#127978; ${escapeHtml(sub.storeName)} (Sub-pedido ${escapeHtml(sub.subOrderId)})</div>
           <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.25rem;">
-            Rastreio exclusivo: <code style="color:var(--secondary);">${sub.trackingCode}</code>
+            Rastreio exclusivo: <code style="color:var(--secondary);">${escapeHtml(sub.trackingCode)}</code>
           </div>
         </div>
       `).join("");

@@ -20,6 +20,7 @@ const App = {
     this.bindGlobalEvents();
 
     // Init submodules
+    if (typeof FirebaseBridge !== "undefined") FirebaseBridge.init();
     Auth.init();
     CartCheckout.init();
     PoliciesLGPD.init();
@@ -30,6 +31,63 @@ const App = {
     if (hash) {
       this.navigate(hash);
     }
+
+    this.enforceAuthGate();
+  },
+
+  /* ------------------------------------------------------------------------
+     Portão de acesso
+
+     Antes, a home abria com um cliente de exemplo já autenticado e as
+     credenciais ficavam hardcoded no HTML. Agora a primeira tela é sempre o
+     login: sem sessão válida o modal de acesso fica travado sobre a vitrine,
+     sem caminho de contorno por clique fora ou no ✕.
+     ------------------------------------------------------------------------ */
+  authGateLocked: false,
+
+  enforceAuthGate() {
+    if (store.getUser()) {
+      this.releaseAuthGate();
+      return false;
+    }
+    this.lockAuthGate();
+    return true;
+  },
+
+  lockAuthGate() {
+    this.authGateLocked = true;
+    this.openModal("modal-login");
+  },
+
+  releaseAuthGate() {
+    this.authGateLocked = false;
+  },
+
+  // Usado pelos fluxos de login/cadastro para assumir que há sessão válida.
+  onAuthenticated() {
+    this.releaseAuthGate();
+    this.closeAllModals();
+    this.updateNavUser();
+  },
+
+  closeModal(modalId) {
+    // O portão não pode ser dispensado por engano ou por clique fora.
+    if (this.authGateLocked && modalId === "modal-login") {
+      store.showToast("Entre ou crie sua conta para acessar a plataforma.", "info", "Acesso restrito");
+      return;
+    }
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.remove("active");
+  },
+
+  closeAllModals() {
+    if (this.authGateLocked) {
+      document.querySelectorAll(".modal-overlay").forEach(m => {
+        if (m.id !== "modal-login") m.classList.remove("active");
+      });
+      return;
+    }
+    document.querySelectorAll(".modal-overlay").forEach(m => m.classList.remove("active"));
   },
 
   /* ------------------------------------------------------------------------
@@ -398,26 +456,26 @@ const App = {
 
     return `
       <div class="product-card">
-        <div class="product-thumb-wrap" onclick="App.openProductModal('${service.id}')">
-          <img src="${service.image}" alt="${service.title}" class="product-thumb">
-          <div class="product-badge-float badge badge-cyan">Serviço & Consultoria</div>
+        <div class="product-thumb-wrap" onclick="App.openProductModal('${escapeJsArg(service.id)}')">
+          <img src="${safeImageUrl(service.image)}" alt="${escapeHtml(service.title)}" class="product-thumb" loading="lazy">
+          <div class="product-badge-float badge badge-cyan">Serviço &amp; Consultoria</div>
         </div>
         <div class="product-body">
           <div class="product-store-meta">
-            <span>Prestador: ${s.name}</span>
+            <span>Prestador: ${escapeHtml(s.name)}</span>
           </div>
-          <h3 class="product-title" onclick="App.openProductModal('${service.id}')">${service.title}</h3>
+          <h3 class="product-title" onclick="App.openProductModal('${escapeJsArg(service.id)}')">${escapeHtml(service.title)}</h3>
           <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.75rem; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">
-            ${service.description}
+            ${escapeHtml(service.description)}
           </p>
           <div class="product-price-block">
             <div class="price-current">
-              <span class="price-value">${Formatters.currency(service.price)}</span>
+              <span class="price-value">${escapeHtml(Formatters.currency(service.price))}</span>
             </div>
             <div class="price-pix">Atendimento com garantia e nota fiscal</div>
           </div>
           <div class="product-actions" style="grid-template-columns:1fr;">
-            <button class="btn btn-secondary btn-sm" onclick="store.addToCart('${service.id}'); CartCheckout.renderCartDrawer();">
+            <button class="btn btn-secondary btn-sm" onclick="store.addToCart('${escapeJsArg(service.id)}'); CartCheckout.renderCartDrawer();">
               Contratar Serviço Online
             </button>
           </div>
@@ -684,6 +742,12 @@ const App = {
      Modals & Drawers Control
      ------------------------------------------------------------------------ */
   openModal(modalId) {
+    // Login e cadastro são caminhos alternativos dentro do próprio portão.
+    // Sem esta liberação, abrir o cadastro deixaria o login travado por
+    // cima, já que closeAllModals preserva o modal de acesso.
+    if (modalId === "modal-login" || modalId.indexOf("modal-register-") === 0) {
+      this.releaseAuthGate();
+    }
     this.closeAllModals();
     const modal = document.getElementById(modalId);
     if (modal) modal.classList.add("active");
@@ -691,15 +755,6 @@ const App = {
       PaymentMethods.renderCards();
       PaymentMethods.hideAddCardForm();
     }
-  },
-
-  closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) modal.classList.remove("active");
-  },
-
-  closeAllModals() {
-    document.querySelectorAll(".modal-overlay").forEach(m => m.classList.remove("active"));
   },
 
   openDrawer(drawerId) {
@@ -729,7 +784,12 @@ const App = {
     // Modal overlay click outside dialog
     document.querySelectorAll(".modal-overlay").forEach(overlay => {
       overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) overlay.classList.remove("active");
+        if (e.target !== overlay) return;
+        if (this.authGateLocked && overlay.id === "modal-login") {
+          store.showToast("Entre ou crie sua conta para acessar a plataforma.", "info", "Acesso restrito");
+          return;
+        }
+        overlay.classList.remove("active");
       });
     });
 

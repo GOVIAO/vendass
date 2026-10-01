@@ -139,18 +139,90 @@ const Dashboards = {
     };
 
     let products = store.getProducts();
-    products.unshift(newProd);
-    store.set(STORAGE_KEYS.PRODUCTS, products);
 
-    // Sync to Firestore
-    if (typeof FirebaseBridge !== "undefined" && FirebaseBridge.db) {
-      FirebaseBridge.db.collection("products").doc(newProd.id).set(newProd).catch(e => console.warn(e));
+    // Verifica se é edição ou criação
+    const form = document.getElementById("form-add-product");
+    const editingId = form && form._editingId;
+
+    if (editingId) {
+      // Modo edição: atualiza produto existente
+      const idx = products.findIndex(p => p.id === editingId);
+      if (idx > -1) {
+        products[idx] = { ...products[idx], title, type, category, price, originalPrice, stock, image, description: desc };
+        store.set(STORAGE_KEYS.PRODUCTS, products);
+        if (typeof FirebaseBridge !== "undefined" && FirebaseBridge.db) {
+          FirebaseBridge.db.collection("products").doc(editingId).update({ title, type, category, price, originalPrice, stock, image, description: desc }).catch(e => console.warn(e));
+        }
+        store.addAuditLog("PRODUCT_UPDATED", user.email || "lojista", `Item '${title}' atualizado no catálogo.`);
+        store.showToast("Item atualizado com sucesso!", "success");
+      }
+      // Limpa o estado de edição
+      if (form) {
+        form._editingId = null;
+        const submitBtn = form.querySelector("[type=submit]");
+        if (submitBtn) submitBtn.textContent = "Cadastrar Item no Catálogo";
+      }
+    } else {
+      // Modo criação
+      const newProd = {
+        id: "prod-" + Date.now(),
+        storeId,
+        type,
+        title,
+        category,
+        price,
+        originalPrice,
+        stock,
+        rating: 5.0,
+        reviewsCount: 1,
+        isFeatured: false,
+        isFlashDeal: false,
+        image,
+        description: desc,
+        variations: [],
+        specs: {
+          "Origem": "Nacional com Garantia Legal CDC",
+          "Disponibilidade": "Pronta Entrega"
+        },
+        shipping: { weightKg: 1, dimensions: "20x20x10cm", estimatedDays: 2 }
+      };
+      products.unshift(newProd);
+      store.set(STORAGE_KEYS.PRODUCTS, products);
+      if (typeof FirebaseBridge !== "undefined" && FirebaseBridge.db) {
+        FirebaseBridge.db.collection("products").doc(newProd.id).set(newProd).catch(e => console.warn(e));
+      }
+      store.addAuditLog("PRODUCT_CREATED", user.email || "lojista", `Novo item '${title}' cadastrado na loja.`);
+      store.showToast("Item cadastrado com sucesso no catálogo!", "success");
     }
-
-    store.addAuditLog("PRODUCT_CREATED", user.email || "lojista", `Novo item '${title}' cadastrado na loja.`);
-    store.showToast("Item cadastrado com sucesso no catálogo!", "success");
     App.closeAllModals();
     this.renderSellerDashboard();
+  },
+
+  editProduct(productId) {
+    const prods = store.getProducts();
+    const p = prods.find(prod => prod.id === productId);
+    if (!p) return;
+
+    // Preenche o formulário de cadastro com os dados do produto
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
+    setVal("prod-form-title", p.title);
+    setVal("prod-form-type", p.type);
+    setVal("prod-form-category", p.category);
+    setVal("prod-form-price", p.price);
+    setVal("prod-form-orig-price", p.originalPrice || p.price);
+    setVal("prod-form-stock", p.stock);
+    setVal("prod-form-image", p.image);
+    setVal("prod-form-desc", p.description);
+
+    // Altera o botão de submit para atualizar em vez de criar
+    const form = document.getElementById("form-add-product");
+    if (form) {
+      form._editingId = productId;
+      const submitBtn = form.querySelector("[type=submit]");
+      if (submitBtn) submitBtn.textContent = "Salvar Alterações";
+    }
+
+    App.openModal("modal-add-product");
   },
 
   deleteProduct(productId) {

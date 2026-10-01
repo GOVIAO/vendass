@@ -125,6 +125,55 @@ powershell -ExecutionPolicy Bypass -File server.ps1
 python -m pytest testes/test_validacao.py -v
 ```
 
+### 🔐 Configuração obrigatória no Firebase (para o e-mail funcionar)
+
+Sem estes passos, **cadastro e recuperação de senha não chegam** ao destinatário.
+
+1. **Ativar o provedor de e-mail**
+   Firebase Console → Authentication → Sign-in method → **Email/Password** → *Enable*
+   Marque também **Email link (passwordless)** se quiser login sem senha.
+
+2. **Ativar o login com Google**
+   Firebase Console → Authentication → Sign-in method → **Google** → *Enable*
+   Escolha um e-mail de suporte e conclua o OAuth.
+
+3. **Autorizar os domínios**
+   Firebase Console → Authentication → Settings → **Authorized domains** → adicionar:
+   - `localhost`
+   - o domínio de produção (ex.: `vendass.netlify.app`)
+   - o domínio do GitHub Pages, se usar
+
+4. **Configurar SMTP próprio** ← o passo que quase sempre falta
+   Firebase Console → Authentication → Settings → **SMTP connection** → *Add new SMTP provider*
+
+   Sem isso, o Firebase usa o remetente padrão `@vendedor-de-solu.firebaseapp.com`,
+   que **só entrega e-mail para addresses adicionados manualmente** como membros do
+   projeto ou como *usuários de teste*. Para clientes reais, nenhum e-mail chega.
+
+   Provedores com plano gratuito:
+   | Serviço | Cota gratuita |
+   |---------|---------------|
+   | [SMTP2GO](https://www.smtp2go.com/) | 1.000 e-mails/mês |
+   | [Brevo](https://www.brevo.com/) | 300 e-mails/dia |
+   | [Mailjet](https://www.mailjet.com/) | 200 e-mails/dia |
+
+   Preencha servidor, porta, usuário, senha e remetente verificado.
+
+5. **Publicar as regras do Firestore**
+   ```bash
+   firebase login
+   firebase deploy --only firestore:rules
+   ```
+   Sem isso, o banco continua com as regras antigas e os dados dos clientes ficam
+   expostos (ver `firestore.rules`).
+
+### Testar o envio de e-mail
+Com a sessão iniciada, o console do navegador executa:
+```js
+await Auth.checkEmailDelivery()
+```
+Retorna o motivo exato da falha em vez de uma mensagem genérica.
+
 ### Segurança
 - Headers de segurança (HSTS, CSP, cache) configurados em `netlify.toml` e `vercel.json`
 - Content Security Policy recomendada para produção

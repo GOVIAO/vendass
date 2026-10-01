@@ -112,11 +112,9 @@ class StoreManager {
     if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
       // No default user - start with clean session
     }
-
-    // Initialize Firebase Cloud Bridge if available
-    if (typeof FirebaseBridge !== "undefined") {
-      FirebaseBridge.init();
-    }
+    // Nota: FirebaseBridge.init() é chamado em App.init() após todos os
+    // scripts terem carregado — não aqui, pois store.js carrega antes de
+    // firebase-config.js e FirebaseBridge ainda não existiria.
   }
 
   // Generic getter & setter
@@ -163,6 +161,7 @@ class StoreManager {
   getFavorites() { return this.get(STORAGE_KEYS.FAVORITES) || { products: [], stores: [] }; }
   getOrders() { return this.get(STORAGE_KEYS.ORDERS) || []; }
   getUser() { return this.get(STORAGE_KEYS.CURRENT_USER); }
+  getUsers() { return this.get(STORAGE_KEYS.USERS) || []; }
   getLogs() { return this.get(STORAGE_KEYS.LOGS) || []; }
   getReports() { return this.get(STORAGE_KEYS.REPORTS) || []; }
 
@@ -266,6 +265,10 @@ class StoreManager {
       this.addAuditLog("LOGOUT", user.email, "Sessão encerrada pelo usuário.");
     }
     this.set(STORAGE_KEYS.CURRENT_USER, null);
+    // Encerra a sessão no Firebase Auth (assíncrono, não bloqueia a UI)
+    if (typeof FirebaseBridge !== "undefined" && FirebaseBridge.auth) {
+      FirebaseBridge.auth.signOut().catch(e => console.warn("Firebase signOut:", e));
+    }
   }
 
   /* ------------------------------------------------------------------------

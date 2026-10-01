@@ -1230,7 +1230,8 @@
     <div class="modal-dialog">
       <div class="modal-header">
         <h3 class="modal-title">Acesso Seguro à Plataforma</h3>
-        <button class="modal-close-btn" onclick="App.closeModal('modal-login')">✕</button>
+        <span class="badge badge-primary" id="login-gate-badge" style="display:none;">Sessão necessária</span>
+        <button class="modal-close-btn" onclick="App.closeModal('modal-login')" id="login-close-btn" style="display:none;">✕</button>
       </div>
       <div class="modal-body">
         <div id="login-error-msg" style="display:none; padding:0.75rem 1rem; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); border-radius:var(--radius-md); color:#F87171; font-size:0.85rem; margin-bottom:1rem;"></div>

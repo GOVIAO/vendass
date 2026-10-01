@@ -1230,7 +1230,8 @@
     <div class="modal-dialog">
       <div class="modal-header">
         <h3 class="modal-title">Acesso Seguro à Plataforma</h3>
-        <button class="modal-close-btn" onclick="App.closeModal('modal-login')">✕</button>
+        <span class="badge badge-primary" id="login-gate-badge" style="display:none;">Sessão necessária</span>
+        <button class="modal-close-btn" onclick="App.closeModal('modal-login')" id="login-close-btn" style="display:none;">✕</button>
       </div>
       <div class="modal-body">
         <div id="login-error-msg" style="display:none; padding:0.75rem 1rem; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); border-radius:var(--radius-md); color:#F87171; font-size:0.85rem; margin-bottom:1rem;"></div>
@@ -1255,19 +1256,19 @@
         <form id="form-login">
           <div class="form-group">
             <label class="form-label">E-mail Cadastrado</label>
-            <input type="email" id="login-email" class="form-control" placeholder="seuemail@exemplo.com.br" required value="carlos.silva@exemplo.com.br">
+            <input type="email" id="login-email" class="form-control" placeholder="seuemail@exemplo.com.br" required autocomplete="email">
           </div>
           <div class="form-group">
             <label class="form-label">Senha de Acesso</label>
-            <input type="password" id="login-password" class="form-control" placeholder="Sua senha secreta" required value="123456">
+            <input type="password" id="login-password" class="form-control" placeholder="Sua senha secreta" required autocomplete="current-password">
           </div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; font-size:0.825rem;">
             <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
-              <input type="checkbox" checked> Lembrar minha sessão
+              <input type="checkbox" name="remember-me" checked> Lembrar minha sessão
             </label>
             <a href="javascript:void(0)" onclick="Auth.recoverPassword(document.getElementById('login-email').value)">Esqueci minha senha</a>
           </div>
-          <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">
+          <button type="submit" id="login-submit-btn" class="btn btn-primary btn-lg" style="width:100%;">
             Entrar com Segurança
           </button>
         </form>
@@ -1297,7 +1298,7 @@
         <p style="font-size:0.85rem;">Para sua proteção, enviamos um código de segurança de 6 dígitos para o e-mail: <strong id="2fa-email-hint"></strong></p>
         
         <div class="form-group" style="max-width:220px; margin:1.5rem auto;">
-          <input type="text" id="2fa-code-input" class="form-control" placeholder="123456" maxlength="6" style="text-align:center; font-size:1.5rem; letter-spacing:0.3em; font-weight:800;" value="123456">
+          <input type="text" id="2fa-code-input" class="form-control" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="text-align:center; font-size:1.5rem; letter-spacing:0.3em; font-weight:800;">
         </div>
         <button class="btn btn-primary" id="btn-verify-2fa" style="width:100%;">
           Verificar e Acessar
@@ -1415,11 +1416,21 @@
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
             <div class="form-group">
               <label class="form-label">E-mail Comercial <span class="required">*</span></label>
-              <input type="email" id="mreg-email" class="form-control" placeholder="contato@minhaloja.com.br" required>
+              <input type="email" id="mreg-email" class="form-control" placeholder="contato@minhaloja.com.br" required autocomplete="email">
             </div>
             <div class="form-group">
+              <label class="form-label">Crie uma Senha de Acesso <span class="required">*</span></label>
+              <input type="password" id="mreg-password" class="form-control" placeholder="Mín. 10 caracteres, com maiúsculas, números e símbolos" required autocomplete="new-password">
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            <div class="form-group">
               <label class="form-label">Chave PIX para Repasse de Vendas <span class="required">*</span></label>
-              <input type="text" class="form-control" placeholder="CNPJ, E-mail ou Chave Aleatória" required value="repasse@minhaloja.com.br">
+              <input type="text" id="mreg-pix" class="form-control" placeholder="CNPJ, E-mail ou Chave Aleatória" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Celular (WhatsApp) <span class="required">*</span></label>
+              <input type="tel" id="mreg-phone" class="form-control" placeholder="(11) 99999-9999" required autocomplete="tel">
             </div>
           </div>
           <div class="form-group">
@@ -1460,9 +1471,25 @@
           </div>
           <div class="form-group">
             <label class="form-label">E-mail de Contato Corporativo <span class="required">*</span></label>
-            <input type="email" id="preg-email" class="form-control" placeholder="parcerias@empresa.com.br" required>
+            <input type="email" id="preg-email" class="form-control" placeholder="parcerias@empresa.com.br" required autocomplete="email">
           </div>
-          <button type="submit" class="btn btn-secondary btn-lg" style="width:100%;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label">Crie uma Senha de Acesso <span class="required">*</span></label>
+              <input type="password" id="preg-password" class="form-control" placeholder="Mín. 10 caracteres, com maiúsculas, números e símbolos" required autocomplete="new-password">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Celular (WhatsApp) <span class="required">*</span></label>
+              <input type="tel" id="preg-phone" class="form-control" placeholder="(11) 99999-9999" required autocomplete="tel">
+            </div>
+          </div>
+          <div class="form-group">
+            <label style="display:flex; align-items:flex-start; gap:0.5rem; font-size:0.8rem; cursor:pointer;">
+              <input type="checkbox" id="preg-terms" required checked>
+              <span>Aceito os Termos de Uso, a Política de Privacidade LGPD e o Código de Ética da plataforma.</span>
+            </label>
+          </div>
+          <button type="submit" id="preg-submit-btn" class="btn btn-secondary btn-lg" style="width:100%;">
             Credenciar Parceiro
           </button>
         </form>
