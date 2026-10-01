@@ -57,10 +57,18 @@ const App = {
   lockAuthGate() {
     this.authGateLocked = true;
     this.openModal("modal-login");
+    const badge = document.getElementById("login-gate-badge");
+    if (badge) badge.style.display = "inline-flex";
+    const closeBtn = document.getElementById("login-close-btn");
+    if (closeBtn) closeBtn.style.display = "none";
   },
 
   releaseAuthGate() {
     this.authGateLocked = false;
+    const badge = document.getElementById("login-gate-badge");
+    if (badge) badge.style.display = "none";
+    const closeBtn = document.getElementById("login-close-btn");
+    if (closeBtn) closeBtn.style.display = "";
   },
 
   // Usado pelos fluxos de login/cadastro para assumir que há sessão válida.
@@ -78,6 +86,12 @@ const App = {
     }
     const modal = document.getElementById(modalId);
     if (modal) modal.classList.remove("active");
+
+    // Sair de um cadastro sem ter conta devolve o usuário ao portão, em vez
+    // de deixar a vitrine aberta para quem não entrou.
+    if (!store.getUser() && modalId.indexOf("modal-register-") === 0) {
+      this.lockAuthGate();
+    }
   },
 
   closeAllModals() {
@@ -781,7 +795,7 @@ const App = {
       });
     }
 
-    // Modal overlay click outside dialog
+    // Overlay click-outside: o portão de acesso não fecha por fora.
     document.querySelectorAll(".modal-overlay").forEach(overlay => {
       overlay.addEventListener("click", (e) => {
         if (e.target !== overlay) return;
@@ -790,6 +804,25 @@ const App = {
           return;
         }
         overlay.classList.remove("active");
+        if (!store.getUser() && overlay.id.indexOf("modal-register-") === 0) {
+          this.lockAuthGate();
+        }
+      });
+    });
+
+    // Esc fecha modais; com o portão ativo, o login resiste ao Esc.
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      if (this.authGateLocked) {
+        const login = document.getElementById("modal-login");
+        if (login && login.classList.contains("active")) {
+          store.showToast("Entre ou crie sua conta para acessar a plataforma.", "info", "Acesso restrito");
+        }
+        return;
+      }
+      document.querySelectorAll(".modal-overlay.active").forEach(m => {
+        if (m.id.indexOf("modal-register-") === 0 && !store.getUser()) return;
+        m.classList.remove("active");
       });
     });
 

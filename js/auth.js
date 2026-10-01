@@ -485,9 +485,8 @@ const Auth = {
     
     store.loginUser(user.email, "firebase-auth");
     const session = store.getUser();
-    App.closeAllModals();
+    App.onAuthenticated();
     store.showToast(`Bem-vindo(a), ${firstName || session.name}! Login confirmado.`, "success", "Autenticado ✓");
-    App.updateNavUser();
     App.navigate(isAdmin ? "dashboard-admin" : "home");
   },
 
@@ -622,8 +621,7 @@ const Auth = {
         store.set(STORAGE_KEYS.CURRENT_USER, newUser);
         store.saveUser(newUser);
         store.addAuditLog("USER_REGISTER", email, "Novo cliente cadastrado com aceite expresso de Termos e LGPD.");
-        App.closeAllModals();
-        App.updateNavUser();
+        App.onAuthenticated();
         App.navigate("home");
 
         // Envio real do e-mail de confirmação. Antes de fechar os modais a
@@ -657,9 +655,7 @@ const Auth = {
       store.set(STORAGE_KEYS.CURRENT_USER, newUser);
       store.saveUser(newUser);
       store.addAuditLog("USER_REGISTER", email, "Novo cliente cadastrado com aceite expresso de Termos e LGPD.");
-      store.showToast("Conta criada com sucesso! (Modo local)", "success", `Olá, ${name.split(" ")[0]}!`);
-      App.closeAllModals();
-      App.updateNavUser();
+      App.onAuthenticated();
       App.navigate("home");
     }
   },
@@ -764,8 +760,7 @@ const Auth = {
     store.set(STORAGE_KEYS.CURRENT_USER, newUser);
     store.saveUser(newUser);
     store.addAuditLog("MERCHANT_REGISTER", email, `Nova loja registrada: '${tradeName}' (CNPJ: ${cnpj}).`);
-    App.closeAllModals();
-    App.updateNavUser();
+    App.onAuthenticated();
     App.navigate("dashboard-seller");
 
     const sent = await this.sendVerificationEmail(authUser, "Cadastro de lojista");
@@ -839,8 +834,7 @@ const Auth = {
     store.set(STORAGE_KEYS.CURRENT_USER, newUser);
     store.saveUser(newUser);
     store.addAuditLog("PARTNER_REGISTER", email, `Novo parceiro credenciado: '${company}' [Tipo: ${type}].`);
-    App.closeAllModals();
-    App.updateNavUser();
+    App.onAuthenticated();
     App.navigate("dashboard-partner");
 
     const sent = await this.sendVerificationEmail(authUser, "Cadastro de parceiro");
