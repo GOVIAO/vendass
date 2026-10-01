@@ -14,6 +14,21 @@ if (-not $certPassword) {
     exit 1
 }
 
+# Sem o .pfx exportado o script abortava no carregamento do certificado.
+# Gerar o par na hora evita depender de um passo manual esquecido.
+if (-not (Test-Path -LiteralPath $certPath)) {
+    Write-Host "localhost.pfx ausente: gerando certificado local descartavel..." -ForegroundColor Yellow
+    $cert = New-SelfSignedCertificate `
+        -DnsName "localhost" `
+        -CertStoreLocation "Cert:\CurrentUser\My" `
+        -NotAfter (Get-Date).AddYears(2)
+    Export-PfxCertificate `
+        -Cert $cert `
+        -FilePath $certPath `
+        -Password (ConvertTo-SecureString -String $certPassword -AsPlainText -Force) | Out-Null
+    Write-Host "Certificado gerado e salvo em $certPath" -ForegroundColor Green
+}
+
 try {
     $listener = [System.Net.Sockets.TcpListener]::new($ip, $port)
     $listener.Start()
@@ -108,11 +123,19 @@ try {
     while ($true) {
         $client = $listener.AcceptTcpClient()
         $stream = $client.GetStream()
-        
+
         # Upgrade para SSL/TLS
         $sslStream = [System.Net.Security.SslStream]::new($stream, $false)
-        $sslStream.AuthenticateAsServer($cert, $false, [System.Security.Authentication.SslProtocols]::Tls12, $false)
-        
+        try {
+            $sslStream.AuthenticateAsServer($cert, $false, [System.Security.Authentication.SslProtocols]::Tls12, $false)
+        } catch {
+            # Sem isto, uma sondagem em porta HTTP comum derrubava o servidor
+            # inteiro: a exceção saía do while(true) e matava o processo.
+            Write-Host "Handshake TLS recusado: $($_.Exception.Message)" -ForegroundColor DarkYellow
+            $client.Close()
+            continue
+        }
+
         $reader = [System.IO.StreamReader]::new($sslStream, [System.Text.Encoding]::ASCII)
         $line = $reader.ReadLine()
 
