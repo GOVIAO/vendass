@@ -291,6 +291,81 @@ const Auth = {
     }
   },
 
+  /* ------------------------------------------------------------------
+     Confirmação de e-mail
+
+     O cadastro criava a credencial e prometia "enviamos a confirmação para
+     seu e-mail" sem nunca chamar sendEmailVerification(): o e-mail não
+     saía. Além disso, o perfil ficava sem verificação, então
+     currentUser.emailVerified permanecia false e um login por Google
+     com o mesmo endereço podia ocupar a conta sem checagem alguma.
+     ------------------------------------------------------------------ */
+  _emailVerificationSent: false,
+
+  _verificationSettings() {
+    // sendEmailVerification só aceita uma URL absoluta; em file:// não há
+    // origem válida, então devolve null e o Firebase usa o domínio padrão.
+    const href = window.location.href;
+    const isHttp = /^https?:/i.test(href);
+    return isHttp ? { url: href, handleCodeInApp: true } : undefined;
+  },
+
+  /**
+   * Dispara o e-mail de verificação da conta recém-criada.
+   * Nunca lança: uma falha de envio não pode invalidar um cadastro que
+   * já foi gravado no servidor.
+   */
+  async sendVerificationEmail(firebaseUser, context = "Cadastro") {
+    if (!firebaseUser || typeof firebaseUser.sendEmailVerification !== "function") return false;
+    try {
+      await firebaseUser.sendEmailVerification(this._verificationSettings());
+      this._emailVerificationSent = true;
+      store.addAuditLog("EMAIL_VERIFICATION_SENT", firebaseUser.email, `E-mail de confirmação enviado (${context}).`);
+      store.showToast(
+        `Enviamos um e-mail de confirmação para ${firebaseUser.email}. Verifique também o spam.`,
+        "success",
+        "Confirme seu e-mail"
+      );
+      return true;
+    } catch (err) {
+      // auth/too-many-requests: o Firebase barra por hora/IP. A conta segue
+      // válida; o usuário pode pedir um novo envio depois.
+      const quota = err.code === "auth/too-many-requests";
+      console.warn("sendEmailVerification error:", err.code || err.message);
+      store.addAuditLog(
+        "EMAIL_VERIFICATION_FAILED",
+        firebaseUser.email,
+        quota
+          ? "Envio de confirmação bloqueado por limite de requisições do provedor."
+          : `Falha no envio de confirmação: ${err.code || "erro desconhecido"}.`
+      );
+      store.showToast(
+        quota
+          ? "Muitos envios seguidos. Use \"Reenviar confirmação\" na área da conta em alguns minutos."
+          : "Conta criada, mas o e-mail de confirmação não pôde ser enviado. Use \"Reenviar confirmação\".",
+        "warning",
+        "Confirmação pendente"
+      );
+      return false;
+    }
+  },
+
+  // Reenvio manual a partir de uma tela já logada.
+  async resendVerificationEmail() {
+    const user = FirebaseBridge.auth && FirebaseBridge.auth.currentUser;
+    if (!user) {
+      store.showToast("Faça login para reenviar a confirmação.", "warning");
+      return false;
+    }
+    if (user.emailVerified) {
+      store.showToast("Seu e-mail já está confirmado.", "info");
+      return true;
+    }
+    const sent = await this.sendVerificationEmail(user, "Reenvio manual");
+    if (!sent) store.showToast("Não foi possível reenviar agora. Tente novamente em alguns minutos.", "error");
+    return sent;
+  },
+
   init() {
     this.bindEvents();
   },
@@ -484,7 +559,7 @@ const Auth = {
     };
   },
 
-  handleClientRegister(e) {
+  async handleClientRegister(e) {
     e.preventDefault();
     this.clearAllErrors("form-register-client");
 
@@ -515,40 +590,55 @@ const Auth = {
       return;
     }
 
+    const submitBtn = document.getElementById("btn-submit-client");
+    if (submitBtn) submitBtn.disabled = true;
+
     // Create user in Firebase Auth
     if (FirebaseBridge.auth) {
-      FirebaseBridge.auth.createUserWithEmailAndPassword(email, password)
-        .then(result => {
-          const user = result.user;
-          user.updateProfile({ displayName: name });
-          
-          const newUser = {
-            id: "usr-" + user.uid.substring(0, 8),
-            firebaseUid: user.uid,
-            name,
-            email,
-            cpf,
-            phone,
-            cep,
-            role: "client",
-            storeId: null,
-            // 2FA só vale se foi realmente inscrito pelo usuário.
-            mfaEnabled: false,
-            registeredAt: new Date().toISOString()
-          };
+      try {
+        const result = await FirebaseBridge.auth.createUserWithEmailAndPassword(email, password);
+        const firebaseUser = result.user;
 
-          store.set(STORAGE_KEYS.CURRENT_USER, newUser);
-          store.saveUser(newUser);
-          store.addAuditLog("USER_REGISTER", email, "Novo cliente cadastrado com aceite expresso de Termos e LGPD.");
-          store.showToast("Conta criada com sucesso! Enviamos a confirmação para seu e-mail.", "success", `Olá, ${name.split(" ")[0]}!`);
-          App.closeAllModals();
-          App.updateNavUser();
-          App.navigate("home");
-        })
-        .catch(err => {
-          const msg = this.getFirebaseErrorMessage(err.code);
-          store.showToast(msg, "error");
-        });
+        // Aguarda o displayName ser gravado ANTES de onAuthStateChanged poder
+        // disparar novamente — evita a race condition onde o listener sobrescreve
+        // o nome do cadastro com null ou "Usuário Google".
+        await firebaseUser.updateProfile({ displayName: name });
+
+        const newUser = {
+          id: "usr-" + firebaseUser.uid.substring(0, 8),
+          firebaseUid: firebaseUser.uid,
+          name,
+          email,
+          cpf,
+          phone,
+          cep,
+          role: "client",
+          storeId: null,
+          // 2FA só vale se foi realmente inscrito pelo usuário.
+          mfaEnabled: false,
+          registeredAt: new Date().toISOString()
+        };
+
+        store.set(STORAGE_KEYS.CURRENT_USER, newUser);
+        store.saveUser(newUser);
+        store.addAuditLog("USER_REGISTER", email, "Novo cliente cadastrado com aceite expresso de Termos e LGPD.");
+        App.closeAllModals();
+        App.updateNavUser();
+        App.navigate("home");
+
+        // Envio real do e-mail de confirmação. Antes de fechar os modais a
+        // tela já estava pronta, então a promessa antiga não tinha lastro.
+        const sent = await this.sendVerificationEmail(firebaseUser, "Cadastro de cliente");
+        store.showToast(
+          sent ? `Olá, ${name.split(" ")[0]}! Sua conta foi criada.` : "Conta criada.",
+          sent ? "success" : "warning"
+        );
+      } catch (err) {
+        const msg = this.getFirebaseErrorMessage(err.code);
+        store.showToast(msg, "error");
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
     } else {
       // Fallback to local storage if Firebase not available
       const newUser = {
@@ -674,10 +764,18 @@ const Auth = {
     store.set(STORAGE_KEYS.CURRENT_USER, newUser);
     store.saveUser(newUser);
     store.addAuditLog("MERCHANT_REGISTER", email, `Nova loja registrada: '${tradeName}' (CNPJ: ${cnpj}).`);
-    store.showToast("Loja criada! Aguarde a aprovação da moderação para exibir o selo de verificada.", "success", "Parabéns, Lojista!");
     App.closeAllModals();
     App.updateNavUser();
     App.navigate("dashboard-seller");
+
+    const sent = await this.sendVerificationEmail(authUser, "Cadastro de lojista");
+    store.showToast(
+      sent
+        ? "Loja criada! Aguarde a aprovação da moderação para exibir o selo de verificada."
+        : "Loja criada! Confirme seu e-mail para ativar a conta.",
+      sent ? "success" : "warning",
+      "Parabéns, Lojista!"
+    );
   },
 
   async handlePartnerRegister(e) {
@@ -741,10 +839,17 @@ const Auth = {
     store.set(STORAGE_KEYS.CURRENT_USER, newUser);
     store.saveUser(newUser);
     store.addAuditLog("PARTNER_REGISTER", email, `Novo parceiro credenciado: '${company}' [Tipo: ${type}].`);
-    store.showToast("Credenciamento de parceiro concluído! Acesso liberado ao portal de APIs e Logística.", "success");
     App.closeAllModals();
     App.updateNavUser();
     App.navigate("dashboard-partner");
+
+    const sent = await this.sendVerificationEmail(authUser, "Cadastro de parceiro");
+    store.showToast(
+      sent
+        ? "Credenciamento concluído! Acesso liberado ao portal de APIs e Logística."
+        : "Credenciamento concluído! Confirme seu e-mail para liberar o portal.",
+      sent ? "success" : "warning"
+    );
   },
 
   /* ------------------------------------------------------------------
@@ -779,12 +884,52 @@ const Auth = {
       store.addAuditLog("PASSWORD_RECOVERY_REQUEST", target, "E-mail de redefinição de senha solicitado.");
       store.showToast(genericMsg, "success", "Recuperação de Senha");
     } catch (err) {
-      if (err.code === "auth/user-not-found" || err.code === "auth/invalid-email") {
+      // Erros de CONFIGURAÇÃO não podem ficar escondidos atrás da
+      // mensagem genérica: sem SMTP ou sem provedor ativo, o e-mail
+      // nunca chegaria e o usuário ficaria sem saber o motivo.
+      if (err.code === "auth/operation-not-allowed") {
+        store.showToast(
+          "Recuperação indisponível: ative o provedor E-mail/Senha em Firebase → Authentication → Sign-in method.",
+          "error",
+          "Erro de configuração"
+        );
+      } else if (err.code === "auth/unauthorized-domain") {
+        store.showToast(
+          "Domínio não autorizado. Adicione-o em Firebase → Authentication → Settings → Authorized domains.",
+          "error",
+          "Erro de configuração"
+        );
+      } else if (err.code === "auth/too-many-requests") {
+        store.showToast("Muitas solicitações. Aguarde alguns minutos e tente de novo.", "error");
+      } else if (err.code === "auth/user-not-found" || err.code === "auth/invalid-email") {
         store.addAuditLog("PASSWORD_RECOVERY_UNKNOWN_EMAIL", target, "Redefinição solicitada para e-mail sem conta.");
         store.showToast(genericMsg, "success", "Recuperação de Senha");
       } else {
         store.showToast(this.getFirebaseErrorMessage(err.code), "error");
       }
+    }
+  },
+
+  /* ------------------------------------------------------------------
+     Verifica se o envio de e-mail está de fato configurado.
+
+     Sem SMTP próprio, o Firebase usa o remetente padrão
+     (@project.firebaseapp.com), que só entrega para e-mails adicionados
+     manualmente como membros do projeto ou como usuários de teste.
+     Para clientes reais é obrigatório configurar um domínio SMTP
+     próprio em Authentication → Settings → SMTP.
+     ------------------------------------------------------------------ */
+  async checkEmailDelivery() {
+    if (!FirebaseBridge.auth) return { ok: false, reason: "Firebase Auth indisponível" };
+    if (!/^[^\s@]+@/.test(FirebaseBridge.auth.currentUser?.email || "")) {
+      return { ok: false, reason: "Faça login para verificar o envio de e-mail" };
+    }
+    try {
+      await FirebaseBridge.auth.sendPasswordResetEmail(FirebaseBridge.auth.currentUser.email);
+      store.showToast("E-mail de teste solicitado. Verifique a caixa de entrada (e o spam).", "success");
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, reason: this.getFirebaseErrorMessage(err.code) };
     }
   },
 
